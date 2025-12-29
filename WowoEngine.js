@@ -1,4 +1,5 @@
 const fs = require('fs');
+const BTreeIndex = require('./BTreeIndex');
 
 const PAGE_SIZE = 4096;
 const MAGIC = 'WOWO';
@@ -71,6 +72,7 @@ class Pager {
 class SawitDB {
     constructor(filePath) {
         this.pager = new Pager(filePath);
+        this.indexes = new Map(); // Map of 'tableName.fieldName' -> BTreeIndex
     }
 
     /**
@@ -97,7 +99,7 @@ class SawitDB {
             switch (cmd) {
                 case 'LAHAN':
                     return this._parseCreate(tokens);
-                case 'LIHAT': // SHOW TABLES
+                case 'LIHAT': // SHOW TABLES or SHOW INDEXES
                     return this._parseShow(tokens);
                 case 'TANAM':
                     return this._parseInsert(tokens);
@@ -109,6 +111,10 @@ class SawitDB {
                     return this._parseUpdate(tokens);
                 case 'BAKAR': // DROP TABLE
                     return this._parseDrop(tokens);
+                case 'INDEKS': // CREATE INDEX
+                    return this._parseCreateIndex(tokens);
+                case 'HITUNG': // AGGREGATE
+                    return this._parseAggregate(tokens);
                 default:
                     return `Perintah tidak dikenal: ${cmd}`;
             }
@@ -125,12 +131,18 @@ class SawitDB {
         return this._createTable(tokens[1]);
     }
 
-    // LIHAT LAHAN
+    // LIHAT LAHAN or LIHAT INDEKS
     _parseShow(tokens) {
-        if (tokens[1] && tokens[1].toUpperCase() === 'LAHAN') {
-            return this._showTables();
+        if (tokens[1]) {
+            const subCmd = tokens[1].toUpperCase();
+            if (subCmd === 'LAHAN') {
+                return this._showTables();
+            } else if (subCmd === 'INDEKS') {
+                const table = tokens[2] || null;
+                return this._showIndexes(table);
+            }
         }
-        throw new Error("Syntax: LIHAT LAHAN");
+        throw new Error("Syntax: LIHAT LAHAN | LIHAT INDEKS [table]");
     }
 
     // BAKAR LAHAN users
@@ -220,15 +232,51 @@ class SawitDB {
     }
 
     _parseWhere(tokens, startIndex) {
-        // Simple parser: key op val
-        const key = tokens[startIndex];
-        const op = tokens[startIndex + 1];
-        let val = tokens[startIndex + 2];
+        // Enhanced parser supporting AND/OR
+        const conditions = [];
+        let i = startIndex;
+        let currentLogic = 'AND';
 
-        if (val.startsWith("'") || val.startsWith('"')) val = val.slice(1, -1);
-        else if (!isNaN(val)) val = Number(val);
+        while (i < tokens.length) {
+            const token = tokens[i];
+            const upper = token ? token.toUpperCase() : '';
 
-        return { key, op, val };
+            if (upper === 'AND' || upper === 'OR') {
+                currentLogic = upper;
+                i++;
+                continue;
+            }
+
+            // Stop if we hit another keyword
+            if (['DENGAN', 'ORDER', 'LIMIT', 'GROUP'].includes(upper)) {
+                break;
+            }
+
+            // Parse condition: key op val
+            if (i + 2 < tokens.length) {
+                const key = tokens[i];
+                const op = tokens[i + 1];
+                let val = tokens[i + 2];
+
+                if (val && (val.startsWith("'") || val.startsWith('"'))) {
+                    val = val.slice(1, -1);
+                } else if (val && !isNaN(val)) {
+                    val = Number(val);
+                }
+
+                conditions.push({ key, op, val, logic: currentLogic });
+                i += 3;
+            } else {
+                break;
+            }
+        }
+
+        // Return single condition format for backwards compatibility
+        if (conditions.length === 1) {
+            return conditions[0];
+        }
+
+        return { type: 'compound', conditions };
     }
 
     // GUSUR ...
@@ -405,6 +453,32 @@ class SawitDB {
 
     _checkMatch(obj, criteria) {
         if (!criteria) return true;
+
+        // Handle compound conditions (AND/OR)
+        if (criteria.type === 'compound') {
+            let result = true;
+            let currentLogic = 'AND';
+
+            for (const cond of criteria.conditions) {
+                const matches = this._checkSingleCondition(obj, cond);
+                
+                if (cond.logic === 'OR' || currentLogic === 'OR') {
+                    result = result || matches;
+                    currentLogic = 'OR';
+                } else {
+                    result = result && matches;
+                    currentLogic = 'AND';
+                }
+            }
+
+            return result;
+        }
+
+        // Simple single condition
+        return this._checkSingleCondition(obj, criteria);
+    }
+
+    _checkSingleCondition(obj, criteria) {
         const val = obj[criteria.key];
         const target = criteria.val;
         switch (criteria.op) {
@@ -422,6 +496,17 @@ class SawitDB {
         const entry = this._findTableEntry(table);
         if (!entry) throw new Error(`Kebun '${table}' tidak ditemukan.`);
 
+        // Try to use index if available and criteria is simple
+        if (criteria && !criteria.type && criteria.op === '=') {
+            const indexKey = `${table}.${criteria.key}`;
+            if (this.indexes.has(indexKey)) {
+                const index = this.indexes.get(indexKey);
+                const indexedRecords = index.search(criteria.val);
+                return indexedRecords;
+            }
+        }
+
+        // Fall back to full table scan
         let currentPageId = entry.startPage;
         const results = [];
 
@@ -508,6 +593,219 @@ class SawitDB {
             count++;
         }
         return `Berhasil memupuk ${count} bibit.`;
+    }
+
+    // --- Index Management ---
+
+    /**
+     * Create an index on a table field
+     * INDEKS [table] PADA [field]
+     */
+    _parseCreateIndex(tokens) {
+        if (tokens.length < 4) throw new Error("Syntax: INDEKS [table] PADA [field]");
+        const table = tokens[1];
+        if (tokens[2].toUpperCase() !== 'PADA') throw new Error("Expected PADA");
+        const field = tokens[3];
+
+        return this._createIndex(table, field);
+    }
+
+    _createIndex(table, field) {
+        const entry = this._findTableEntry(table);
+        if (!entry) throw new Error(`Kebun '${table}' tidak ditemukan.`);
+
+        const indexKey = `${table}.${field}`;
+        if (this.indexes.has(indexKey)) {
+            return `Indeks pada '${table}.${field}' sudah ada.`;
+        }
+
+        // Create index
+        const index = new BTreeIndex();
+        index.name = indexKey;
+        index.keyField = field;
+
+        // Build index from existing data
+        const allRecords = this._select(table, null);
+        for (const record of allRecords) {
+            if (record.hasOwnProperty(field)) {
+                index.insert(record[field], record);
+            }
+        }
+
+        this.indexes.set(indexKey, index);
+        return `Indeks dibuat pada '${table}.${field}' (${allRecords.length} records indexed)`;
+    }
+
+    _showIndexes(table) {
+        if (table) {
+            const indexes = [];
+            for (const [key, index] of this.indexes) {
+                if (key.startsWith(table + '.')) {
+                    indexes.push(index.stats());
+                }
+            }
+            return indexes.length > 0 ? indexes : `Tidak ada indeks pada '${table}'`;
+        } else {
+            const allIndexes = [];
+            for (const index of this.indexes.values()) {
+                allIndexes.push(index.stats());
+            }
+            return allIndexes;
+        }
+    }
+
+    // Override _insert to update indexes
+    _insertWithIndexUpdate(table, data) {
+        const result = this._insert(table, data);
+        
+        // Update indexes
+        for (const [indexKey, index] of this.indexes) {
+            const [tbl, field] = indexKey.split('.');
+            if (tbl === table && data.hasOwnProperty(field)) {
+                index.insert(data[field], data);
+            }
+        }
+
+        return result;
+    }
+
+    // --- Aggregation Support ---
+
+    /**
+     * Aggregate functions: COUNT, SUM, AVG, MIN, MAX, GROUP BY
+     * HITUNG COUNT(*) DARI [table]
+     * HITUNG SUM(field) DARI [table] DIMANA ...
+     * HITUNG AVG(field) DARI [table] KELOMPOK [field]
+     */
+    _parseAggregate(tokens) {
+        let i = 1;
+        
+        // Parse aggregate function
+        const funcToken = tokens[i];
+        let aggFunc = null;
+        let aggField = null;
+
+        if (funcToken.includes('(')) {
+            // Parse FUNC(field)
+            const match = funcToken.match(/([A-Z]+)\\((.*)\\)/);
+            if (match) {
+                aggFunc = match[1];
+                aggField = match[2] === '*' ? null : match[2];
+            }
+            i++;
+        } else {
+            throw new Error("Syntax: HITUNG FUNC(field) DARI [table]");
+        }
+
+        // Expect DARI
+        if (!tokens[i] || tokens[i].toUpperCase() !== 'DARI') {
+            throw new Error("Expected DARI");
+        }
+        i++;
+
+        const table = tokens[i];
+        i++;
+
+        // Parse WHERE clause
+        let criteria = null;
+        if (i < tokens.length && tokens[i].toUpperCase() === 'DIMANA') {
+            i++;
+            criteria = this._parseWhere(tokens, i);
+            // Skip past where conditions
+            while (i < tokens.length && !['KELOMPOK'].includes(tokens[i].toUpperCase())) {
+                i++;
+            }
+        }
+
+        // Parse GROUP BY
+        let groupField = null;
+        if (i < tokens.length && tokens[i].toUpperCase() === 'KELOMPOK') {
+            i++;
+            groupField = tokens[i];
+        }
+
+        return this._aggregate(table, aggFunc, aggField, criteria, groupField);
+    }
+
+    _aggregate(table, func, field, criteria, groupBy) {
+        const records = this._select(table, criteria);
+
+        if (groupBy) {
+            return this._groupedAggregate(records, func, field, groupBy);
+        }
+
+        switch (func.toUpperCase()) {
+            case 'COUNT':
+                return { count: records.length };
+            
+            case 'SUM':
+                if (!field) throw new Error("SUM requires a field");
+                const sum = records.reduce((acc, r) => acc + (Number(r[field]) || 0), 0);
+                return { sum, field };
+            
+            case 'AVG':
+                if (!field) throw new Error("AVG requires a field");
+                const avg = records.reduce((acc, r) => acc + (Number(r[field]) || 0), 0) / records.length;
+                return { avg, field, count: records.length };
+            
+            case 'MIN':
+                if (!field) throw new Error("MIN requires a field");
+                const min = Math.min(...records.map(r => Number(r[field]) || Infinity));
+                return { min, field };
+            
+            case 'MAX':
+                if (!field) throw new Error("MAX requires a field");
+                const max = Math.max(...records.map(r => Number(r[field]) || -Infinity));
+                return { max, field };
+            
+            default:
+                throw new Error(`Unknown aggregate function: ${func}`);
+        }
+    }
+
+    _groupedAggregate(records, func, field, groupBy) {
+        const groups = {};
+
+        // Group records
+        for (const record of records) {
+            const key = record[groupBy];
+            if (!groups[key]) {
+                groups[key] = [];
+            }
+            groups[key].push(record);
+        }
+
+        // Apply aggregate to each group
+        const results = [];
+        for (const [key, groupRecords] of Object.entries(groups)) {
+            const result = { [groupBy]: key };
+
+            switch (func.toUpperCase()) {
+                case 'COUNT':
+                    result.count = groupRecords.length;
+                    break;
+                
+                case 'SUM':
+                    result.sum = groupRecords.reduce((acc, r) => acc + (Number(r[field]) || 0), 0);
+                    break;
+                
+                case 'AVG':
+                    result.avg = groupRecords.reduce((acc, r) => acc + (Number(r[field]) || 0), 0) / groupRecords.length;
+                    break;
+                
+                case 'MIN':
+                    result.min = Math.min(...groupRecords.map(r => Number(r[field]) || Infinity));
+                    break;
+                
+                case 'MAX':
+                    result.max = Math.max(...groupRecords.map(r => Number(r[field]) || -Infinity));
+                    break;
+            }
+
+            results.push(result);
+        }
+
+        return results;
     }
 }
 
