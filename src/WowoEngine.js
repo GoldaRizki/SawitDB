@@ -10,9 +10,64 @@ class SawitDB {
         this.pager = new Pager(filePath);
         this.indexes = new Map(); // Map of 'tableName.fieldName' -> BTreeIndex
         this.parser = new QueryParser();
+
+        // PERSISTENCE: Initialize System Tables
+        this._initSystem();
+    }
+
+    _initSystem() {
+        // Check if _indexes table exists, if not create it
+        if (!this._findTableEntry('_indexes')) {
+            try {
+                this._createTable('_indexes');
+            } catch (e) {
+                // Ignore if it effectively exists or concurrency issue
+            }
+        }
+
+        // Load Indexes
+        this._loadIndexes();
+    }
+
+    _loadIndexes() {
+        const indexRecords = this._select('_indexes', null);
+        for (const rec of indexRecords) {
+            const table = rec.table;
+            const field = rec.field;
+            const indexKey = `${table}.${field}`;
+
+            if (!this.indexes.has(indexKey)) {
+                // Rebuild Index in Memory
+                const index = new BTreeIndex();
+                index.name = indexKey;
+                index.keyField = field;
+
+                // Populate Index
+                try {
+                    const allRecords = this._select(table, null);
+                    for (const record of allRecords) {
+                        if (record.hasOwnProperty(field)) {
+                            index.insert(record[field], record);
+                        }
+                    }
+                    this.indexes.set(indexKey, index);
+                } catch (e) {
+                    console.error(`Failed to rebuild index ${indexKey}: ${e.message}`);
+                }
+            }
+        }
+    }
+
+    close() {
+        if (this.pager) {
+            this.pager.close();
+            this.pager = null;
+        }
     }
 
     query(queryString, params) {
+        if (!this.pager) return "Error: Database is closed.";
+
         // Parse the query into a command object
         const cmd = this.parser.parse(queryString, params);
 
@@ -36,15 +91,12 @@ class SawitDB {
                 case 'SELECT':
                     // Map generic generic Select Logic
                     const rows = this._select(cmd.table, cmd.criteria, cmd.sort, cmd.limit, cmd.offset, cmd.joins);
-                    // Projection handled inside _select or here?
-                    // _select now handles SORT/LIMIT/OFFSET which acts on All Rows (mostly).
-                    // Projection should be last.
 
                     if (cmd.cols.length === 1 && cmd.cols[0] === '*') return rows;
 
                     return rows.map(r => {
                         const newRow = {};
-                        cmd.cols.forEach(c => newRow[c] = r[c]);
+                        cmd.cols.forEach(c => newRow[c] = r[c] !== undefined ? r[c] : null);
                         return newRow;
                     });
 
@@ -100,7 +152,9 @@ class SawitDB {
         let offset = 12;
         for (let i = 0; i < numTables; i++) {
             const tName = p0.toString('utf8', offset, offset + 32).replace(/\0/g, '');
-            tables.push(tName);
+            if (!tName.startsWith('_')) { // Hide system tables
+                tables.push(tName);
+            }
             offset += 40;
         }
         return tables;
@@ -131,9 +185,33 @@ class SawitDB {
     }
 
     _dropTable(name) {
-        // Simple Drop: Remove from directory. Pages leak (fragmentation) but that's typical for simple heap files.
+        if (name === '_indexes') return "Tidak boleh membakar catatan sistem.";
+
         const entry = this._findTableEntry(name);
         if (!entry) return `Kebun '${name}' tidak ditemukan.`;
+
+        // Remove associated indexes
+        const toRemove = [];
+        for (const key of this.indexes.keys()) {
+            if (key.startsWith(name + '.')) {
+                toRemove.push(key);
+            }
+        }
+
+        // Remove from memory
+        toRemove.forEach(key => this.indexes.delete(key));
+
+        // Remove from _indexes table
+        try {
+            this._delete('_indexes', {
+                type: 'compound',
+                logic: 'AND',
+                conditions: [
+                    { key: 'table', op: '=', val: name }
+                ]
+            });
+        } catch (e) { /* Ignore if fails, maybe recursive? No, _delete uses basic ops */ }
+
 
         const p0 = this.pager.readPage(0);
         const numTables = p0.readUInt32LE(8);
@@ -200,8 +278,10 @@ class SawitDB {
 
         this.pager.writePage(currentPageId, pData);
 
-        // Update Indexes if any
-        this._updateIndexes(table, data);
+        // Update Indexes if any, BUT NOT if inserting into _indexes (prevent recursion loop)
+        if (table !== '_indexes') {
+            this._updateIndexes(table, data);
+        }
 
         return "Bibit tertanam.";
     }
@@ -218,29 +298,26 @@ class SawitDB {
     _checkMatch(obj, criteria) {
         if (!criteria) return true;
 
-        // Handle compound conditions (AND/OR)
         if (criteria.type === 'compound') {
-            let result = true;
-            let currentLogic = 'AND'; // Initial logic is irrelevant for first item, but technically AND identity is true
+            let result = (criteria.logic === 'OR') ? false : true;
 
             for (let i = 0; i < criteria.conditions.length; i++) {
                 const cond = criteria.conditions[i];
-                const matches = this._checkSingleCondition(obj, cond);
+                const matches = (cond.type === 'compound')
+                    ? this._checkMatch(obj, cond)
+                    : this._checkSingleCondition(obj, cond);
 
-                if (i === 0) {
-                    result = matches;
+                if (criteria.logic === 'OR') {
+                    result = result || matches;
+                    if (result) return true; // Short circuit
                 } else {
-                    if (cond.logic === 'OR') {
-                        result = result || matches;
-                    } else {
-                        result = result && matches;
-                    }
+                    result = result && matches;
+                    if (!result) return false; // Short circuit
                 }
             }
             return result;
         }
 
-        // Simple single condition
         return this._checkSingleCondition(obj, criteria);
     }
 
@@ -257,7 +334,6 @@ class SawitDB {
             case 'IN': return Array.isArray(target) && target.includes(val);
             case 'NOT IN': return Array.isArray(target) && !target.includes(val);
             case 'LIKE':
-                // Simple regex-like match. Handle % for wildcards.
                 const regexStr = '^' + target.replace(/%/g, '.*') + '$';
                 const re = new RegExp(regexStr, 'i');
                 return re.test(String(val));
@@ -275,18 +351,11 @@ class SawitDB {
         const entry = this._findTableEntry(table);
         if (!entry) throw new Error(`Kebun '${table}' tidak ditemukan.`);
 
-        // Optimization: If Index exists and criteria is simple '='
-        // Only valid if NO sorting is needed, or if index matches sort (not implemented yet).
-        // For now, always do full scan if sort/fancy criteria involved
-        // OR rely on in-memory sort after index fetch.
-
         let results = [];
 
         if (joins && joins.length > 0) {
-            // --- JOIN LOGIC (Nested Loop) ---
-
-            // 1. Scan Main Table (fetch all, ignore criteria for now)
-            // Transform rows to include prefixed keys: table.key
+            // ... (Existing Join Logic - Unchanged but ensure recursion safe)
+            // 1. Scan Main Table
             let currentRows = this._scanTable(entry, null).map(row => {
                 const newRow = { ...row };
                 for (const k in row) {
@@ -304,23 +373,15 @@ class SawitDB {
                 const nextRows = [];
                 for (const leftRow of currentRows) {
                     for (const rightRow of joinRows) {
-                        // Prepare right row with prefixes
                         const rightRowPrefixed = { ...rightRow };
                         for (const k in rightRow) {
                             rightRowPrefixed[`${join.table}.${k}`] = rightRow[k];
                         }
-
-                        // Check ON condition
                         const lVal = leftRow[join.on.left];
                         const rVal = rightRowPrefixed[join.on.right];
-
                         let match = false;
-                        // Simple equality check for now
                         if (join.on.op === '=') match = lVal == rVal;
-                        // TODO: Add other operators if needed
-
                         if (match) {
-                            // Merge rows
                             nextRows.push({ ...leftRow, ...rightRowPrefixed });
                         }
                     }
@@ -329,18 +390,15 @@ class SawitDB {
             }
             results = currentRows;
 
-            // 3. Apply Criteria on Joined Results
             if (criteria) {
                 results = results.filter(r => this._checkMatch(r, criteria));
             }
 
         } else {
-            // --- STANDARD SINGLE TABLE LOGIC ---
-            // 1. Fetch Candidates
+            // Index Optimization
             if (criteria && !criteria.type && criteria.op === '=' && !sort) {
-                // Index optimization path - only if no sort (for safety)
-                // ... (Index Logic) ...
                 const indexKey = `${table}.${criteria.key}`;
+                // Ensure we use index if exists
                 if (this.indexes.has(indexKey)) {
                     const index = this.indexes.get(indexKey);
                     results = index.search(criteria.val);
@@ -348,13 +406,13 @@ class SawitDB {
                     results = this._scanTable(entry, criteria);
                 }
             } else {
+                // Scan
                 results = this._scanTable(entry, criteria);
             }
         }
 
-        // --- 2. Sorting (In-Memory) ---
+        // Sorting
         if (sort) {
-            // sort = { key, dir: 'ASC' | 'DESC' }
             results.sort((a, b) => {
                 const valA = a[sort.key];
                 const valB = b[sort.key];
@@ -364,12 +422,14 @@ class SawitDB {
             });
         }
 
-        // --- 3. Limit & Offset ---
+        // Limit & Offset
         let start = 0;
         let end = results.length;
 
         if (offsetCount) start = offsetCount;
         if (limit) end = start + limit;
+        if (end > results.length) end = results.length;
+        if (start > results.length) start = results.length;
 
         return results.slice(start, end);
     }
@@ -423,6 +483,10 @@ class SawitDB {
 
                 if (shouldDelete) {
                     deletedCount++;
+                    // Remove from Index if needed
+                    if (table !== '_indexes') {
+                        this._removeFromIndexes(table, JSON.parse(jsonStr));
+                    }
                 } else {
                     recordsToKeep.push({ len, data: pData.slice(offset + 2, offset + 2 + len) });
                 }
@@ -432,13 +496,21 @@ class SawitDB {
             if (recordsToKeep.length < count) {
                 let writeOffset = 8;
                 pData.writeUInt16LE(recordsToKeep.length, 4);
+
+                // We must rebuild the page content compactly
+                // Clear old content to be safe (optional but good for debugging)
+                // pData.fill(0, 8); // No, don't wipe header
+
                 for (let rec of recordsToKeep) {
                     pData.writeUInt16LE(rec.len, writeOffset);
                     rec.data.copy(pData, writeOffset + 2);
                     writeOffset += 2 + rec.len;
                 }
-                pData.writeUInt16LE(writeOffset, 6);
+                pData.writeUInt16LE(writeOffset, 6); // New free offset
+
+                // Zero out the rest
                 pData.fill(0, writeOffset);
+
                 this.pager.writePage(currentPageId, pData);
             }
             currentPageId = pData.readUInt32LE(0);
@@ -446,24 +518,31 @@ class SawitDB {
         return `Berhasil menggusur ${deletedCount} bibit.`;
     }
 
+    _removeFromIndexes(table, data) {
+        for (const [indexKey, index] of this.indexes) {
+            const [tbl, field] = indexKey.split('.');
+            if (tbl === table && data.hasOwnProperty(field)) {
+                index.delete(data[field]); // Basic deletion from B-Tree
+            }
+        }
+    }
+
     _update(table, updates, criteria) {
         const records = this._select(table, criteria);
         if (records.length === 0) return "Tidak ada bibit yang cocok untuk dipupuk.";
 
-        this._delete(table, criteria);
+        this._delete(table, criteria); // Delete old versions
 
         let count = 0;
         for (const rec of records) {
             for (const k in updates) {
                 rec[k] = updates[k];
             }
-            this._insert(table, rec);
+            this._insert(table, rec); // Insert new versions
             count++;
         }
         return `Berhasil memupuk ${count} bibit.`;
     }
-
-    // --- Index Management ---
 
     _createIndex(table, field) {
         const entry = this._findTableEntry(table);
@@ -488,6 +567,14 @@ class SawitDB {
         }
 
         this.indexes.set(indexKey, index);
+
+        // PERSISTENCE: Save to _indexes table
+        try {
+            this._insert('_indexes', { table, field });
+        } catch (e) {
+            console.error("Failed to persist index definition", e);
+        }
+
         return `Indeks dibuat pada '${table}.${field}' (${allRecords.length} records indexed)`;
     }
 
@@ -508,8 +595,6 @@ class SawitDB {
             return allIndexes;
         }
     }
-
-    // --- Aggregation Support ---
 
     _aggregate(table, func, field, criteria, groupBy) {
         const records = this._select(table, criteria);
@@ -549,41 +634,21 @@ class SawitDB {
 
     _groupedAggregate(records, func, field, groupBy) {
         const groups = {};
-
-        // Group records
         for (const record of records) {
             const key = record[groupBy];
-            if (!groups[key]) {
-                groups[key] = [];
-            }
+            if (!groups[key]) groups[key] = [];
             groups[key].push(record);
         }
 
-        // Apply aggregate to each group
         const results = [];
         for (const [key, groupRecords] of Object.entries(groups)) {
             const result = { [groupBy]: key };
-
             switch (func.toUpperCase()) {
-                case 'COUNT':
-                    result.count = groupRecords.length;
-                    break;
-
-                case 'SUM':
-                    result.sum = groupRecords.reduce((acc, r) => acc + (Number(r[field]) || 0), 0);
-                    break;
-
-                case 'AVG':
-                    result.avg = groupRecords.reduce((acc, r) => acc + (Number(r[field]) || 0), 0) / groupRecords.length;
-                    break;
-
-                case 'MIN':
-                    result.min = Math.min(...groupRecords.map(r => Number(r[field]) || Infinity));
-                    break;
-
-                case 'MAX':
-                    result.max = Math.max(...groupRecords.map(r => Number(r[field]) || -Infinity));
-                    break;
+                case 'COUNT': result.count = groupRecords.length; break;
+                case 'SUM': result.sum = groupRecords.reduce((acc, r) => acc + (Number(r[field]) || 0), 0); break;
+                case 'AVG': result.avg = groupRecords.reduce((acc, r) => acc + (Number(r[field]) || 0), 0) / groupRecords.length; break;
+                case 'MIN': result.min = Math.min(...groupRecords.map(r => Number(r[field]) || Infinity)); break;
+                case 'MAX': result.max = Math.max(...groupRecords.map(r => Number(r[field]) || -Infinity)); break;
             }
             results.push(result);
         }

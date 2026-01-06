@@ -5,11 +5,14 @@ const MAGIC = 'WOWO';
 
 /**
  * Pager handles 4KB page I/O
+ * Includes simple LRU Cache
  */
 class Pager {
     constructor(filePath) {
         this.filePath = filePath;
         this.fd = null;
+        this.cache = new Map(); // PageID -> Buffer
+        this.cacheLimit = 1000; // Keep 1000 pages in memory (~4MB)
         this._open();
     }
 
@@ -31,9 +34,30 @@ class Pager {
     }
 
     readPage(pageId) {
+        if (this.cache.has(pageId)) {
+            // MRI (Most Recently Used): Move to end
+            const buf = this.cache.get(pageId);
+            this.cache.delete(pageId);
+            this.cache.set(pageId, buf);
+            return buf;
+        }
+
         const buf = Buffer.alloc(PAGE_SIZE);
         const offset = pageId * PAGE_SIZE;
-        fs.readSync(this.fd, buf, 0, PAGE_SIZE, offset);
+        try {
+            fs.readSync(this.fd, buf, 0, PAGE_SIZE, offset);
+        } catch (e) {
+            // Handle read past EOF or other errors gracefully if possible
+            if (e.code !== 'EOF') throw e;
+        }
+
+        // Add to cache
+        this.cache.set(pageId, buf);
+        if (this.cache.size > this.cacheLimit) {
+            const firstKey = this.cache.keys().next().value;
+            this.cache.delete(firstKey);
+        }
+
         return buf;
     }
 
@@ -41,8 +65,10 @@ class Pager {
         if (buf.length !== PAGE_SIZE) throw new Error("Buffer must be 4KB");
         const offset = pageId * PAGE_SIZE;
         fs.writeSync(this.fd, buf, 0, PAGE_SIZE, offset);
-        // STABILITY UPGRADE: Force write to disk. 
-        try { fs.fsyncSync(this.fd); } catch (e) { /* Ignore if not supported */ }
+
+        // Update cache
+        this.cache.set(pageId, buf);
+        // If we just updated, move to end is already handled by set
     }
 
     allocPage() {
@@ -62,6 +88,14 @@ class Pager {
         this.writePage(newPageId, newPage);
 
         return newPageId;
+    }
+
+    close() {
+        if (this.fd !== null) {
+            fs.closeSync(this.fd);
+            this.fd = null;
+            this.cache.clear();
+        }
     }
 }
 

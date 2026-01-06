@@ -10,7 +10,7 @@ const rl = readline.createInterface({
     output: process.stdout
 });
 
-console.log("--- WOWODB TANI EDITION V2 (SQL-Like) ---");
+console.log("--- SawitDB ---");
 console.log("Perintah:");
 console.log("  LAHAN [nama_kebun]");
 console.log("  LIHAT LAHAN");

@@ -85,6 +85,17 @@ class SawitServer {
             client.destroy();
         }
 
+        // Close all open databases to release file locks
+        for (const [name, db] of this.databases) {
+            try {
+                console.log(`[Server] Closing database: ${name}`);
+                db.close();
+            } catch (e) {
+                console.error(`[Server] Error closing database ${name}:`, e.message);
+            }
+        }
+        this.databases.clear();
+
         // Close server
         if (this.server) {
             this.server.close(() => {
@@ -402,27 +413,28 @@ class SawitServer {
             }
             const dbName = parts[2];
 
-            // Reuse existing logic
-            const payload = { database: dbName };
-            // We need to adapt the existing _handleDropDatabase to generic usage or call it.
-            // _handleDropDatabase sends its own response. We want query_result format preferably for consistency in CLI?
-            // The existing _handleDropDatabase sends 'drop_success'. CLI might not print that as a query result string.
-            // Let's reimplement logic here for 'query' flow to ensure 'query_result' type.
-
             try {
                 const dbPath = path.join(this.dataDir, `${dbName}.sawit`);
                 if (!fs.existsSync(dbPath)) {
                     return this._sendError(socket, `Wilayah '${dbName}' tidak ditemukan.`);
                 }
 
+                // FIX: Close database before deletion to release file lock
                 if (this.databases.has(dbName)) {
+                    const db = this.databases.get(dbName);
+                    try { db.close(); } catch (e) { }
                     this.databases.delete(dbName);
                 }
 
-                try { fs.unlinkSync(dbPath); } catch (e) { }
-
+                // If current user is in this db, kick them out
                 if (context.currentDatabase === dbName) {
                     context.setDatabase(null);
+                }
+
+                try { fs.unlinkSync(dbPath); } catch (e) {
+                    // Retry once after short delay if locked? Or just throw.
+                    // If close() works, this should succeed.
+                    throw e;
                 }
 
                 return this._sendResponse(socket, {
@@ -531,6 +543,7 @@ class SawitServer {
 
             // Close database if open
             if (this.databases.has(database)) {
+                this.databases.get(database).close(); // Fix: Close first
                 this.databases.delete(database);
             }
 
