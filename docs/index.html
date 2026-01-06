@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SawitDB - Tani Edition Documentation</title>
+    <title>SawitDB - Documentation</title>
     <meta name="description"
         content="SawitDB: The most agricultural database in the world. Feature-rich, single-file, and based on Indonesian wisdom.">
     <meta name="keywords"
@@ -14,7 +14,7 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://github.com/WowoEngine/SawitDB">
-    <meta property="og:title" content="SawitDB - Tani Edition Documentation">
+    <meta property="og:title" content="SawitDB - Documentation">
     <meta property="og:description"
         content="Database infrastruktur langit? No. Ini database infrastruktur darat. Hemat, kuat, dan merakyat.">
     <meta property="og:image" content="https://raw.githubusercontent.com/WowoEngine/SawitDB/main/docs/sawitdb.jpg">
@@ -22,7 +22,7 @@
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://github.com/WowoEngine/SawitDB">
-    <meta property="twitter:title" content="SawitDB - Tani Edition Documentation">
+    <meta property="twitter:title" content="SawitDB - Documentation">
     <meta property="twitter:description"
         content="Database infrastruktur langit? No. Ini database infrastruktur darat. Hemat, kuat, dan merakyat.">
     <meta property="twitter:image" content="https://raw.githubusercontent.com/WowoEngine/SawitDB/main/docs/sawitdb.jpg">
@@ -306,6 +306,14 @@
                             never "mysteriously disappears".</p>
                     </div>
                     <div class="glass-card p-6 rounded-xl hover:bg-white/5 transition-all group">
+                        <h3 class="font-bold text-xl text-green-400 mb-2 group-hover:text-green-300">Crash Recovery
+                        </h3>
+                        <p class="text-gray-400 text-sm">Powered by <code
+                                class="bg-white/10 px-1 py-0.5 rounded text-gray-300">Write-Ahead Logging (WAL)</code>.
+                            Data guarantees to
+                            return. Unlike a fugitive who is "hard to find".</p>
+                    </div>
+                    <div class="glass-card p-6 rounded-xl hover:bg-white/5 transition-all group">
                         <h3 class="font-bold text-xl text-green-400 mb-2 group-hover:text-green-300">Zero Bureaucracy
                         </h3>
                         <p class="text-gray-400 text-sm">Pure Node.js. Zero dependencies. No "Vendor Pengadaan" or
@@ -341,23 +349,28 @@
                             <tbody class="divide-y divide-white/5">
                                 <tr class="hover:bg-white/5 transition-colors">
                                     <td class="px-6 py-4 font-medium text-white">INSERT</td>
-                                    <td class="px-6 py-4 text-green-400 font-bold">~3,125</td>
-                                    <td class="px-6 py-4 text-gray-400">0.32 ms</td>
+                                    <td class="px-6 py-4 text-green-400 font-bold">~22,000</td>
+                                    <td class="px-6 py-4 text-gray-400">0.045 ms</td>
                                 </tr>
                                 <tr class="hover:bg-white/5 transition-colors">
                                     <td class="px-6 py-4 font-medium text-white">SELECT (PK Index)</td>
-                                    <td class="px-6 py-4 text-green-400 font-bold">~3,846</td>
-                                    <td class="px-6 py-4 text-gray-400">0.26 ms</td>
+                                    <td class="px-6 py-4 text-green-400 font-bold">~247,288</td>
+                                    <td class="px-6 py-4 text-gray-400">0.004 ms</td>
                                 </tr>
                                 <tr class="hover:bg-white/5 transition-colors">
                                     <td class="px-6 py-4 font-medium text-white">SELECT (Scan)</td>
-                                    <td class="px-6 py-4 text-green-400 font-bold">~4,762</td>
-                                    <td class="px-6 py-4 text-gray-400">0.21 ms</td>
+                                    <td class="px-6 py-4 text-green-400 font-bold">~13,200</td>
+                                    <td class="px-6 py-4 text-gray-400">0.075 ms</td>
                                 </tr>
                                 <tr class="hover:bg-white/5 transition-colors">
-                                    <td class="px-6 py-4 font-medium text-white">UPDATE</td>
-                                    <td class="px-6 py-4 text-green-400 font-bold">~3,571</td>
-                                    <td class="px-6 py-4 text-gray-400">0.28 ms</td>
+                                    <td class="px-6 py-4 font-medium text-white">UPDATE (Indexed)</td>
+                                    <td class="px-6 py-4 text-green-400 font-bold">~11,000</td>
+                                    <td class="px-6 py-4 text-gray-400">0.090 ms</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">DELETE (Indexed)</td>
+                                    <td class="px-6 py-4 text-green-400 font-bold">~19,000</td>
+                                    <td class="px-6 py-4 text-gray-400">0.052 ms</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -663,7 +676,7 @@
                             <tbody class="divide-y divide-white/5">
                                 <tr class="hover:bg-white/5 transition-colors">
                                     <td class="px-6 py-4 font-medium text-white">Comparison</td>
-                                    <td class="px-6 py-4 font-mono text-gray-300">=, !=, >, <,>=, <=< /td>
+                                    <td class="px-6 py-4 font-mono text-gray-300">=, !=, &gt;, &lt;, &gt;=, &lt;=</td>
                                     <td class="px-6 py-4 text-gray-400">Standard value comparison</td>
                                 </tr>
                                 <tr class="hover:bg-white/5 transition-colors">
@@ -798,56 +811,125 @@
             <!-- Client API & CLI -->
             <section id="tools-section" class="mb-16 scroll-mt-24">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                    <div id="client-api" class="glass-card rounded-2xl p-6 md:p-8 hover:bg-white/5 transition-all">
+                        <div class="flex items-center gap-4 mb-6">
+                            <i class="fas fa-code text-3xl text-green-400"></i>
+                            <div>
+                                <h2 class="text-2xl font-bold text-white">Client API</h2>
+                                <p class="text-sm text-gray-400">Node.js Integration</p>
+                            </div>
+                        </div>
+                        <p class="text-gray-300 mb-6 text-sm md:text-base">
+                            SawitDB provides a clean, promise-based client for Node.js applications.
+                        </p>
+                        <div class="bg-black/50 rounded-xl p-4 md:p-6 border border-white/10 overflow-x-auto">
+                            <pre class="font-mono text-sm text-gray-300"><code><span class="text-purple-400">const</span> client = <span class="text-purple-400">new</span> <span class="text-yellow-300">SawitClient</span>(<span class="text-green-300">'sawitdb://localhost:7878'</span>);
+<span class="text-purple-400">await</span> client.connect();
 
-                    <div id="client-api" class="glass-card p-6 md:p-8 rounded-2xl hover:bg-white/5 transition-all">
-                        <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
-                            Client API
-                        </h2>
-                        <div class="bg-black/50 p-4 rounded-lg overflow-x-auto border border-white/10">
-                            <pre class="font-mono text-xs text-blue-200 leading-relaxed">
-    const SawitClient = require('./src/SawitClient');
+<span class="text-gray-500">// Switch DB</span>
+<span class="text-purple-400">await</span> client.use(<span class="text-green-300">'production'</span>);
 
-    // Connect
-    const client = new SawitClient(
-    'sawitdb://localhost:7878/plantation'
-    );
-    await client.connect();
-
-    // Query
-    const result = await client.query(
-    'PANEN * DARI sawit'
-    );
-
-    // Disconnect
-    client.disconnect();</pre>
+<span class="text-gray-500">// Query</span>
+<span class="text-purple-400">const</span> profit = <span class="text-purple-400">await</span> client.query(
+    <span class="text-green-300">"HITUNG SUM(total) DARI sales"</span>
+);</code></pre>
                         </div>
                     </div>
 
-                    <div id="cli" class="glass-card p-6 md:p-8 rounded-2xl hover:bg-white/5 transition-all">
-                        <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
-                            CLI Tool
-                        </h2>
-                        <p class="text-sm text-gray-400 mb-4">Manage your database directly from the terminal.</p>
-
-                        <div class="space-y-4">
+                    <div id="cli" class="glass-card rounded-2xl p-6 md:p-8 hover:bg-white/5 transition-all">
+                        <div class="flex items-center gap-4 mb-6">
+                            <i class="fas fa-terminal text-3xl text-amber-400"></i>
                             <div>
-                                <div class="text-xs font-bold text-gray-500 uppercase mb-1">Local CLI</div>
-                                <code
-                                    class="block bg-black/30 text-gray-300 p-2 rounded text-sm font-mono border border-white/10">node cli/local.js</code>
-                            </div>
-                            <div>
-                                <div class="text-xs font-bold text-gray-500 uppercase mb-1">Network CLI</div>
-                                <code
-                                    class="block bg-black/30 text-gray-300 p-2 rounded text-sm font-mono border border-white/10">node cli/remote.js [url]</code>
+                                <h2 class="text-2xl font-bold text-white">CLI Tools</h2>
+                                <p class="text-sm text-gray-400">Manage & Benchmark</p>
                             </div>
                         </div>
+                        <ul class="space-y-4">
+                            <li class="bg-black/30 p-3 rounded-lg border border-white/5">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-bold text-green-400">Interactive Shell</span>
+                                    <code class="text-xs bg-white/10 px-1 rounded">cli/remote.js</code>
+                                </div>
+                                <p class="text-xs text-gray-400">Connect to remote server. Supports <code
+                                        class="text-white">USE [db]</code> context switching.</p>
+                            </li>
+                            <li class="bg-black/30 p-3 rounded-lg border border-white/5">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-bold text-blue-400">Unit Tests</span>
+                                    <code class="text-xs bg-white/10 px-1 rounded">cli/test.js</code>
+                                </div>
+                                <p class="text-xs text-gray-400">Run 10+ automated test suites covering CRUD,
+                                    Persistence, and Indexing.</p>
+                            </li>
+                            <li class="bg-black/30 p-3 rounded-lg border border-white/5">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-bold text-purple-400">Benchmark</span>
+                                    <code class="text-xs bg-white/10 px-1 rounded">cli/benchmark.js</code>
+                                </div>
+                                <p class="text-xs text-gray-400">Test throughput. Measures INSERT (~38k TPS) and SELECT
+                                    (~120k TPS) performance.</p>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
 
+            <!-- Changelog -->
+            <section id="changelog" class="mb-16 scroll-mt-24">
+                <h2 class="text-3xl font-bold text-white mb-8 border-b border-white/10 pb-4">Latest Updates</h2>
+                <div class="space-y-6">
+                    <!-- v2.4.1 -->
+                    <div class="relative pl-8 border-l-2 border-green-500/30">
                         <div
-                            class="mt-6 bg-yellow-500/10 text-yellow-500 text-sm p-3 rounded-lg border border-yellow-500/20">
-                            <strong>Pro Tip:</strong> Use <code>.help</code> inside the CLI to see available commands.
+                            class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-500 border-4 border-gray-900">
                         </div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <h3 class="text-xl font-bold text-white">v2.5.0</h3>
+                            <span
+                                class="px-2 py-0.5 rounded text-xs bg-green-500/20 text-green-400 border border-green-500/20">Latest</span>
+                            <span class="text-sm text-gray-400">Jan 2026</span>
+                        </div>
+                        <ul class="list-disc list-outside text-gray-300 text-sm space-y-1 ml-4">
+                            <li><strong>Performance :</strong> Object Caching & Async WAL achieved
+                                <strong>~247,000 TPS</strong> for reads.
+                            </li>
+                            <li><strong>Hash Join Implementation:</strong> Complex joins are now <strong>77x
+                                    Faster</strong> (O(M+N)).</li>
+                            <li><strong>New Tools:</strong> Added CLI Unit Tests and Benchmarking Tool.</li>
+                            <li><strong>Persistence Fix:</strong> Fixed Index loss on restart and Windows file locking
+                                issues.</li>
+                        </ul>
                     </div>
 
+                    <!-- v2.4 -->
+                    <div class="relative pl-8 border-l-2 border-white/10">
+                        <div
+                            class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-gray-700 border-4 border-gray-900">
+                        </div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <h3 class="text-xl font-bold text-gray-400">v2.4</h3>
+                            <span class="text-sm text-gray-500">Jan 2026</span>
+                        </div>
+                        <ul class="list-disc list-outside text-gray-400 text-sm space-y-1 ml-4">
+                            <li><strong>Security:</strong> Full Parameterized Query support.</li>
+                            <li><strong>Docs:</strong> Enhanced documentation site.</li>
+                        </ul>
+                    </div>
+
+                    <!-- v2.3 -->
+                    <div class="relative pl-8 border-l-2 border-white/10">
+                        <div
+                            class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-gray-700 border-4 border-gray-900">
+                        </div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <h3 class="text-xl font-bold text-gray-400">v2.3</h3>
+                            <span class="text-sm text-gray-500">Dec 2025</span>
+                        </div>
+                        <ul class="list-disc list-outside text-gray-400 text-sm space-y-1 ml-4">
+                            <li><strong>Generic Syntax:</strong> Added SQL Standard compatibility.</li>
+                            <li><strong>Operators:</strong> Added LIKE, IN, BETWEEN support.</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
 

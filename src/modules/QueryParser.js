@@ -9,7 +9,8 @@ class QueryParser {
     tokenize(sql) {
         // Regex to match tokens
         // Updated to handle escaped quotes in strings: 'It\'s me'
-        const tokenRegex = /\s*(=>|!=|>=|<=|<>|[a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)?|@\w+|\d+|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|[(),=*.<>?])\s*/g;
+        // Updated to handle floats: 12.34, negative numbers: -5
+        const tokenRegex = /\s*(=>|!=|>=|<=|<>|[a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)?|@\w+|-?\d+(?:\.\d+)?|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|[(),=*.<>?])\s*/g;
         const tokens = [];
         let match;
         while ((match = tokenRegex.exec(sql)) !== null) {

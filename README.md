@@ -14,9 +14,9 @@
 
 **SawitDB** is a unique database solution stored in `.sawit` binary files.
 
-The system features a custom **Paged Heap File** architecture similar to SQLite, using fixed-size 4KB pages to ensure efficient memory usage. What differentiates SawitDB is its unique **Agricultural Query Language (AQL)**, which replaces standard SQL keywords with Indonesian farming terminology.
+The system features a custom **Hybrid Paged Architecture** similar to SQLite but supercharged with **Object Caching**, using fixed-size 4KB pages to ensure efficient memory usage and near-instant access. What differentiates SawitDB is its unique **Agricultural Query Language (AQL)**, which replaces standard SQL keywords with Indonesian farming terminology.
 
-**Now availability on NPM!** Connect via TCP using `sawitdb://` protocol similar to MongoDB.
+**Now available on NPM!** Connect via TCP using `sawitdb://` protocol.
 
 **🚨 Emergency: Aceh Flood Relief**
 Please support our brothers and sisters in Aceh.
@@ -27,10 +27,11 @@ Please support our brothers and sisters in Aceh.
 
 ## Features
 
-- **Paged Architecture**: Data is stored in 4096-byte binary pages. The engine does not load the entire database into memory.
+- **Hybrid Paged Architecture**: Data is stored in 4096-byte binary pages, but hot data is cached as native Objects for zero-copy reads.
 - **Single File Storage**: All data, schema, and indexes are stored in a single `.sawit` file.
 - **High Stability**: Uses 4KB atomic pages. More stable than a coalition government.
 - **Data Integrity (Anti-Korupsi)**: Implements strict `fsync` protocols. Data cannot be "corrupted" or "disappear" mysteriously like social aid funds (Bansos). No "Sunat Massal" here.
+- **Crash Recovery**: Uses **Write-Ahead Logging (WAL)**. Guarantees data always returns after a crash. Unlike a fugitive (Buronan) who is "hard to find".
 - **Zero Bureaucracy (Zero Deps)**: Built entirely with standard Node.js. No unnecessary "Vendor Pengadaan" or "Mark-up Anggaran".
 - **Transparansi**: Query language is clear. No "Pasal Karet" (Ambiguous Laws) or "Rapat Tertutup" in 5-star hotels.
 - **Speed**: Faster than printing an e-KTP at the Kelurahan.
@@ -52,6 +53,8 @@ SawitDB is built with the spirit of "Data Sovereignty". We believe a reliable da
 - `cli/local.js`: Interactive CLI tool (Local).
 - `cli/remote.js`: Interactive CLI tool (Network).
 - [CHANGELOG.md](CHANGELOG.md): Version history and release notes.
+- `cli/test.js`: Unit Test Suite.
+- `cli/benchmark.js`: Performance Benchmark Tool.
 - `examples/`: Sample scripts.
 
 ## Installation
@@ -77,7 +80,7 @@ Use [SawitClient](#client-api) or any interactive session.
 
 ## Dual Syntax Support
 
-SawitDB 2.3 introduces the **Generic Syntax** alongside the classic **Agricultural Query Language (AQL)**, making it easier for developers familiar with standard SQL to adopt.
+SawitDB introduces the **Generic Syntax** alongside the classic **Agricultural Query Language (AQL)**, making it easier for developers familiar with standard SQL to adopt.
 
 | Operation | Agricultural Query Language (AQL) | Generic SQL (Standard) |
 | :--- | :--- | :--- |
@@ -193,10 +196,11 @@ Test Environment: Single Thread, Windows Node.js (Local NVMe)
 
 | Operation | Ops/Sec | Latency (avg) |
 |-----------|---------|---------------|
-| **INSERT** | ~3,125 | 0.32 ms |
-| **SELECT (PK Index)** | ~3,846 | 0.26 ms |
-| **SELECT (Scan)** | ~4,762 | 0.21 ms |
-| **UPDATE** | ~3,571 | 0.28 ms |
+| **INSERT** | ~22,000 | 0.045 ms |
+| **SELECT (PK Index)** | **~247,288** | 0.004 ms |
+| **SELECT (Scan)** | ~13,200 (10k rows) | 0.075 ms |
+| **UPDATE (Indexed)** | ~11,000 | 0.090 ms |
+| **DELETE (Indexed)** | ~19,000 | 0.052 ms |
 
 *Note: Hasil dapat bervariasi tergantung hardware.*
 

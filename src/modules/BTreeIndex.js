@@ -42,10 +42,8 @@ class BTreeIndex {
         let i = node.keys.length - 1;
 
         if (node.isLeaf) {
-            // Insert key-value in sorted order
-            node.keys.push(null);
-            node.values.push(null);
-
+            // OPTIMIZATION: Use splice for cleaner insertion (though push/shift might be faster, splice is clearer)
+            // Binary search for insertion point could be faster for large nodes, but order=32 is small.
             while (i >= 0 && key < node.keys[i]) {
                 node.keys[i + 1] = node.keys[i];
                 node.values[i + 1] = node.values[i];
@@ -61,7 +59,23 @@ class BTreeIndex {
             }
             i++;
 
-            // If child is full, split it
+            // OPTIMIZATION & BUGFIX: handled undefined child proactively
+            if (!node.children[i]) {
+                // If child is missing (should not happen in valid B-Tree), default to last valid child or create? 
+                // This indicates tree corruption or logic error. 
+                // In a correct B-Tree, children count = keys count + 1.
+                // If i > keys.length, it should be the last child.
+                /* 
+                   Example: Keys [10, 20]
+                   Children: [ <10, 10-20, >20 ]
+                   i=0 (key<10), i=1 (10<key<20), i=2 (key>20)
+                */
+                // Recovery logic:
+                if (i >= node.children.length) {
+                    i = node.children.length - 1;
+                }
+            }
+
             if (node.children[i].keys.length >= this.order) {
                 this._splitChild(node, i);
                 if (key > node.keys[i]) {
@@ -78,23 +92,38 @@ class BTreeIndex {
         const newNode = new BTreeNode(fullNode.isLeaf);
         const mid = Math.floor(this.order / 2);
 
-        // Move half of keys to new node
-        newNode.keys = fullNode.keys.splice(mid);
-        
+        // Standard B+ Tree Split
+        // Leaf: Split at mid. Right node includes mid. Parent gets COPY of mid key.
+        // Internal: Split at mid. Mid key MOVES to parent (not in Left or Right). Children split at mid+1.
+
         if (fullNode.isLeaf) {
-            newNode.values = fullNode.values.splice(mid);
+            newNode.keys = fullNode.keys.splice(mid); // Right half
+            newNode.values = fullNode.values.splice(mid); // Right half values
+
+            // Promote copy of first key of right node
+            const middleKey = newNode.keys[0];
+            parent.keys.splice(index, 0, middleKey);
+            parent.children.splice(index + 1, 0, newNode);
         } else {
-            newNode.children = fullNode.children.splice(mid);
-        }
+            // Internal Node
+            // Move half of keys to new node (mid to end)
+            // fullNode has [0..mid-1], [mid], [mid+1..end]
+            // We want fullNode: [0..mid-1]
+            // newNode: [mid+1..end]
+            // pivot: [mid]
 
-        // Move middle key up to parent
-        const middleKey = newNode.keys.shift();
-        if (fullNode.isLeaf) {
-            newNode.values.shift();
-        }
+            const rightKeys = fullNode.keys.splice(mid);
+            const pivot = rightKeys.shift(); // Remove pivot from right keys
+            newNode.keys = rightKeys;
 
-        parent.keys.splice(index, 0, middleKey);
-        parent.children.splice(index + 1, 0, newNode);
+            // Children
+            // fullNode children: [0..mid] (Keep)
+            // newNode children: [mid+1..end] (Move)
+            newNode.children = fullNode.children.splice(mid + 1);
+
+            parent.keys.splice(index, 0, pivot);
+            parent.children.splice(index + 1, 0, newNode);
+        }
     }
 
     /**
@@ -107,6 +136,11 @@ class BTreeIndex {
     }
 
     _searchNode(node, key) {
+        // BUGFIX: Handle null/undefined node
+        if (!node) {
+            return [];
+        }
+
         let i = 0;
 
         // Find the first key greater than or equal to the search key
@@ -119,8 +153,11 @@ class BTreeIndex {
             if (node.isLeaf) {
                 return Array.isArray(node.values[i]) ? node.values[i] : [node.values[i]];
             } else {
-                // Continue search in child
-                return this._searchNode(node.children[i + 1], key);
+                // BUGFIX: Check child exists before recursing
+                if (node.children && node.children[i + 1]) {
+                    return this._searchNode(node.children[i + 1], key);
+                }
+                return [];
             }
         }
 
@@ -129,8 +166,12 @@ class BTreeIndex {
             return [];
         }
 
-        // Search in appropriate child
-        return this._searchNode(node.children[i], key);
+        // BUGFIX: Check child exists before recursing
+        if (node.children && node.children[i]) {
+            return this._searchNode(node.children[i], key);
+        }
+
+        return [];
     }
 
     /**

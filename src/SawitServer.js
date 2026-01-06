@@ -35,6 +35,8 @@ class SawitServer {
 
         this._log('info', `Data directory: ${this.dataDir}`);
         this._log('info', `Max connections: ${this.maxConnections}`);
+
+        this.walConfig = config.wal || { enabled: false };
     }
 
     _validatePort(port) {
@@ -65,7 +67,7 @@ class SawitServer {
 
         this.server.listen(this.port, this.host, () => {
             console.log(`╔══════════════════════════════════════════════════╗`);
-            console.log(`║         🌴 SawitDB Server - Version 2.4          ║`);
+            console.log(`║         🌴 SawitDB Server - Version 2.5.0        ║`);
             console.log(`╚══════════════════════════════════════════════════╝`);
             console.log(`[Server] Listening on ${this.host}:${this.port}`);
             console.log(`[Server] Protocol: sawitdb://${this.host}:${this.port}/[database]`);
@@ -192,7 +194,7 @@ class SawitServer {
         this._sendResponse(socket, {
             type: 'welcome',
             message: 'SawitDB Server',
-            version: '2.4',
+            version: '2.5.0',
             protocol: 'sawitdb'
         });
     }
@@ -568,7 +570,7 @@ class SawitServer {
     _getOrCreateDatabase(name) {
         if (!this.databases.has(name)) {
             const dbPath = path.join(this.dataDir, `${name}.sawit`);
-            const db = new SawitDB(dbPath);
+            const db = new SawitDB(dbPath, { wal: this.walConfig });
             this.databases.set(name, db);
         }
         return this.databases.get(name);

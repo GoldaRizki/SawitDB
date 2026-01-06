@@ -20,7 +20,13 @@ const path = require('path');
 const config = {
     port: process.env.SAWIT_PORT || 7878,
     host: process.env.SAWIT_HOST || '0.0.0.0',
-    dataDir: process.env.SAWIT_DATA_DIR || path.join(__dirname, '../data')
+    dataDir: process.env.SAWIT_DATA_DIR || path.join(__dirname, '../data'),
+    // WAL Configuration
+    wal: {
+        enabled: process.env.SAWIT_WAL_ENABLED !== 'false', // Default true if not explicitly false
+        syncMode: process.env.SAWIT_WAL_SYNC_MODE || 'normal',
+        checkpointInterval: parseInt(process.env.SAWIT_WAL_CHECKPOINT_INTERVAL) || 10000
+    }
 };
 
 // Parse authentication if provided
@@ -37,6 +43,7 @@ console.log(`  - Port: ${config.port}`);
 console.log(`  - Host: ${config.host}`);
 console.log(`  - Data Directory: ${config.dataDir}`);
 console.log(`  - Auth: ${config.auth ? 'Enabled' : 'Disabled'}`);
+console.log(`  - WAL: ${config.wal.enabled ? 'Enabled (' + config.wal.syncMode + ')' : 'Disabled'}`);
 console.log('');
 
 // Create and start server
