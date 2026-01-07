@@ -11,7 +11,7 @@ const fs = require('fs');
 class SawitServer {
   constructor(config = {}) {
     // Validate and set configuration
-    this.port = this._validatePort(config.port || 7878);
+    this.port = this.#validatePort(config.port || 7878);
     this.host = config.host || '0.0.0.0';
     this.dataDir = config.dataDir || path.join(__dirname, '../data');
     this.databases = new Map(); // Map of database name -> SawitDB instance
@@ -40,7 +40,7 @@ class SawitServer {
     this.walConfig = config.wal || { enabled: false };
   }
 
-  _validatePort(port) {
+  #validatePort(port) {
     const p = parseInt(port, 10);
     if (isNaN(p) || p < 1 || p > 65535) {
       throw new Error(`Invalid port: ${port}. Must be between 1-65535`);
@@ -69,7 +69,7 @@ class SawitServer {
    * @param {string} storedHash - Stored hash in format "salt:hash" or plain text
    * @returns {boolean}
    */
-  _verifyPassword(password, storedHash) {
+  #verifyPassword(password, storedHash) {
     // Support both hashed (salt:hash) and legacy plaintext passwords
     if (storedHash.includes(':')) {
       const [salt, hash] = storedHash.split(':');
@@ -215,7 +215,7 @@ class SawitServer {
           this.#log('debug', `Request from ${clientId}`, request);
 
           // Handle with timeout
-          this._handleRequest(socket, request, {
+          this.#handleRequest(socket, request, {
             authenticated,
             currentDatabase,
             setAuth: (val) => {
@@ -270,7 +270,7 @@ class SawitServer {
     });
   }
 
-  _handleRequest(socket, request, context) {
+  #handleRequest(socket, request, context) {
     const { type, payload } = request;
 
     // Authentication check
@@ -317,7 +317,7 @@ class SawitServer {
     const stats = {
       ...this.stats,
       uptime,
-      uptimeFormatted: this._formatUptime(uptime),
+      uptimeFormatted: this.#formatUptime(uptime),
       databases: this.databases.size,
       memoryUsage: process.memoryUsage()
     };
@@ -328,7 +328,7 @@ class SawitServer {
     });
   }
 
-  _formatUptime(ms) {
+  #formatUptime(ms) {
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
@@ -353,7 +353,7 @@ class SawitServer {
 
     // Check if user exists and verify password with timing-safe comparison
     const storedPassword = this.auth[username];
-    if (storedPassword && this._verifyPassword(password, storedPassword)) {
+    if (storedPassword && this.#verifyPassword(password, storedPassword)) {
       context.setAuth(true);
       this.#sendResponse(socket, {
         type: 'auth_success',
@@ -380,7 +380,7 @@ class SawitServer {
     }
 
     try {
-      const db = this._getOrCreateDatabase(database);
+      const db = this.#getOrCreateDatabase(database);
       context.setDatabase(database);
       this.#sendResponse(socket, {
         type: 'use_success',
@@ -612,7 +612,7 @@ class SawitServer {
     }
 
     try {
-      const db = this._getOrCreateDatabase(context.currentDatabase);
+      const db = this.#getOrCreateDatabase(context.currentDatabase);
       const result = db.query(query, params);
       const duration = Date.now() - startTime;
 
@@ -690,7 +690,7 @@ class SawitServer {
     }
   }
 
-  _getOrCreateDatabase(name) {
+  #getOrCreateDatabase(name) {
     if (!this.databases.has(name)) {
       const dbPath = path.join(this.dataDir, `${name}.sawit`);
       const db = new SawitDB(dbPath, { wal: this.walConfig });
