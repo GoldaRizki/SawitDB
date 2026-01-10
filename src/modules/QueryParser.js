@@ -218,6 +218,13 @@ class QueryParser {
             let joinType = null;
 
             if (token === 'JOIN' || token === 'GABUNG') {
+                if (token === 'GABUNG') {
+                    const next = tokens[i + 1] ? tokens[i + 1].toUpperCase() : '';
+                    if (['KIRI', 'KANAN', 'SILANG', 'PENUH'].includes(next)) {
+                        i++; // Skip GABUNG, let next iteration handle direction
+                        continue;
+                    }
+                }
                 joinType = 'INNER';
                 i++;
             } else if (token === 'INNER') {
@@ -227,33 +234,33 @@ class QueryParser {
                     i++;
                 }
             } else if (token === 'LEFT' || token === 'KIRI') {
+                joinType = 'LEFT'; // Set default
                 i++;
                 // Skip optional OUTER keyword
                 if (tokens[i] && tokens[i].toUpperCase() === 'OUTER') i++;
                 if (tokens[i] && ['JOIN', 'GABUNG'].includes(tokens[i].toUpperCase())) {
-                    joinType = 'LEFT';
                     i++;
                 }
             } else if (token === 'RIGHT' || token === 'KANAN') {
+                joinType = 'RIGHT'; // Set default
                 i++;
                 // Skip optional OUTER keyword
                 if (tokens[i] && tokens[i].toUpperCase() === 'OUTER') i++;
                 if (tokens[i] && ['JOIN', 'GABUNG'].includes(tokens[i].toUpperCase())) {
-                    joinType = 'RIGHT';
                     i++;
                 }
-            } else if (token === 'FULL') {
+            } else if (token === 'FULL' || token === 'PENUH') {
+                joinType = 'FULL'; // Set default
                 i++;
                 // Skip optional OUTER keyword
                 if (tokens[i] && tokens[i].toUpperCase() === 'OUTER') i++;
                 if (tokens[i] && ['JOIN', 'GABUNG'].includes(tokens[i].toUpperCase())) {
-                    joinType = 'FULL';
                     i++;
                 }
             } else if (token === 'CROSS' || token === 'SILANG') {
+                joinType = 'CROSS'; // Set default
                 i++;
                 if (tokens[i] && ['JOIN', 'GABUNG'].includes(tokens[i].toUpperCase())) {
-                    joinType = 'CROSS';
                     i++;
                 }
             } else {
@@ -294,41 +301,60 @@ class QueryParser {
             // Calculate whereEndIndex by checking for ORDER or LIMIT or END
             criteria = this.parseWhere(tokens, i);
             // Move i past the WHERE clause
-            // parseWhere logic assumes it stops at keywords, but we need to sync `i` in this parent method.
-            // Since parseWhere doesn't return new index, we must scan forward or refactor parseWhere.
-            // Simplified: scan until keyword.
-            while (i < tokens.length && !['ORDER', 'LIMIT', 'OFFSET'].includes(tokens[i].toUpperCase())) {
+            while (i < tokens.length &&
+                !['ORDER', 'URUTKAN', 'LIMIT', 'HANYA', 'OFFSET', 'MULAI'].includes(tokens[i].toUpperCase())) {
                 i++;
             }
         }
 
         let sort = null;
-        if (i < tokens.length && tokens[i].toUpperCase() === 'ORDER') {
-            i++; // ORDER
-            if (tokens[i].toUpperCase() === 'BY') i++;
-            const key = tokens[i];
-            i++;
-            let dir = 'asc';
-            if (i < tokens.length && ['ASC', 'DESC'].includes(tokens[i].toUpperCase())) {
-                dir = tokens[i].toLowerCase();
+        // ORDER BY / URUTKAN BERDASARKAN
+        if (i < tokens.length) {
+            const token = tokens[i].toUpperCase();
+            if (token === 'ORDER') {
                 i++;
+                if (tokens[i].toUpperCase() === 'BY') i++;
+            } else if (token === 'URUTKAN') {
+                i++;
+                if (tokens[i].toUpperCase() === 'BERDASARKAN') i++;
             }
-            sort = { key, dir };
+
+            if (i < tokens.length && (tokens[i - 1].toUpperCase() === 'BY' || tokens[i - 1].toUpperCase() === 'BERDASARKAN')) {
+                const key = tokens[i];
+                i++;
+                let dir = 'asc';
+                if (i < tokens.length && ['ASC', 'DESC', 'NAIK', 'TURUN'].includes(tokens[i].toUpperCase())) {
+                    const d = tokens[i].toUpperCase();
+                    dir = (d === 'DESC' || d === 'TURUN') ? 'desc' : 'asc';
+                    i++;
+                }
+                sort = { key, dir };
+            }
         }
 
         let limit = null;
         let offset = null;
 
-        if (i < tokens.length && tokens[i].toUpperCase() === 'LIMIT') {
+        // LIMIT / HANYA
+        if (i < tokens.length && ['LIMIT', 'HANYA'].includes(tokens[i].toUpperCase())) {
             i++;
             limit = parseInt(tokens[i], 10);
             i++;
         }
 
-        if (i < tokens.length && tokens[i].toUpperCase() === 'OFFSET') {
-            i++;
-            offset = parseInt(tokens[i], 10);
-            i++;
+        // OFFSET / MULAI DARI / LANGKAHI
+        if (i < tokens.length) {
+            const token = tokens[i].toUpperCase();
+            if (token === 'OFFSET' || token === 'LANGKAHI') {
+                i++;
+                offset = parseInt(tokens[i], 10);
+                i++;
+            } else if (token === 'MULAI') {
+                i++;
+                if (tokens[i] && tokens[i].toUpperCase() === 'DARI') i++;
+                offset = parseInt(tokens[i], 10);
+                i++;
+            }
         }
 
         return { type: 'SELECT', table, cols, joins, criteria, sort, limit, offset, distinct };
@@ -343,25 +369,34 @@ class QueryParser {
             const token = tokens[i];
             const upper = token ? token.toUpperCase() : '';
 
-            if (['AND', 'OR'].includes(upper)) {
-                simpleConditions.push({ type: 'logic', op: upper });
+            if (['AND', 'OR', 'DAN', 'ATAU'].includes(upper)) {
+                // Map DAN->AND, ATAU->OR
+                const op = (upper === 'DAN') ? 'AND' : (upper === 'ATAU') ? 'OR' : upper;
+                simpleConditions.push({ type: 'logic', op });
                 i++;
                 continue;
             }
 
-            if (['DENGAN', 'ORDER', 'LIMIT', 'OFFSET', 'GROUP', 'KELOMPOK', ')', ';'].includes(upper)) {
+            if (['DENGAN', 'ORDER', 'URUTKAN', 'LIMIT', 'HANYA', 'OFFSET', 'MULAI', 'LANGKAHI', 'GROUP', 'KELOMPOK', ')', ';'].includes(upper)) {
                 break;
             }
 
             // Parse Single condition
             if (i < tokens.length - 1) {
                 const key = tokens[i];
-                const op = tokens[i + 1].toUpperCase();
+                const rawOp = tokens[i + 1].toUpperCase();
+                let op = rawOp;
+
+                // Map AQL Ops? 
+                // Typically user keeps =, !=, >, < symbols. 
+                // But could translate LIKE -> SEPERTI?
+                if (rawOp === 'SEPERTI') op = 'LIKE';
+
                 let val = null;
                 let consumed = 2;
 
-                if (op === 'BETWEEN') {
-                    // ... existing BETWEEN logic ...
+                if (op === 'BETWEEN' || op === 'ANTARA') {
+                    op = 'BETWEEN'; // Standardize
                     let v1 = tokens[i + 2];
                     let v2 = tokens[i + 4];
                     // ... normalization ...
@@ -373,29 +408,45 @@ class QueryParser {
 
                     simpleConditions.push({ type: 'cond', key, op: 'BETWEEN', val: [v1, v2] });
                     consumed = 5;
-                    if (tokens[i + 3].toUpperCase() !== 'AND') throw new Error("Syntax: ... BETWEEN val1 AND val2");
+                    const connector = tokens[i + 3].toUpperCase();
+                    if (connector !== 'AND' && connector !== 'DAN') throw new Error("Syntax: ... BETWEEN val1 AND val2");
 
-                } else if (op === 'IS') {
+                } else if (op === 'IS') { // ADALAH?
                     // ... existing IS NULL logic ...
                     const next = tokens[i + 2].toUpperCase();
-                    if (next === 'NULL') {
+                    if (next === 'NULL' || next === 'KOSONG') {
                         simpleConditions.push({ type: 'cond', key, op: 'IS NULL', val: null });
                         consumed = 3;
-                    } else if (next === 'NOT') {
-                        if (tokens[i + 3].toUpperCase() === 'NULL') {
+                    } else if (next === 'NOT' || next === 'TIDAK') {
+                        const next2 = tokens[i + 3].toUpperCase();
+                        if (next2 === 'NULL' || next2 === 'KOSONG') {
                             simpleConditions.push({ type: 'cond', key, op: 'IS NOT NULL', val: null });
                             consumed = 4;
                         } else { throw new Error("Syntax: IS NOT NULL"); }
                     } else { throw new Error("Syntax: IS NULL or IS NOT NULL"); }
 
-                } else if (op === 'IN' || op === 'NOT') {
+                } else if (op === 'IN' || op === 'DALAM') {
                     // ... existing IN logic ...
-                    if (op === 'NOT') {
-                        if (tokens[i + 2].toUpperCase() !== 'IN') break;
+                    const isNot = (rawOp === 'NOT' || rawOp === 'TIDAK'); // Wait, op is IN/DALAM here
+                    // Handle NOT IN logic better if token order is NOT IN
+                    // Here we assumed op is next token.
+                }
+
+                // Check for NOT IN / TIDAK DALAM hack
+                if (key.toUpperCase() === 'NOT' || key.toUpperCase() === 'TIDAK') {
+                    // Logic issue in loop if we treat key as keyword above.
+                    // But key is variable name usually.
+                }
+
+                if (op === 'IN' || op === 'DALAM' || op === 'NOT' || op === 'TIDAK') {
+                    // Re-implement IN logic
+                    if (op === 'NOT' || op === 'TIDAK') {
+                        const next = tokens[i + 2].toUpperCase();
+                        if (next !== 'IN' && next !== 'DALAM') break; // Not valid
                         consumed++;
                     }
                     // Expect ( v1, v2 )
-                    let p = (op === 'NOT') ? i + 3 : i + 2;
+                    let p = (op === 'NOT' || op === 'TIDAK') ? i + 3 : i + 2;
                     let values = [];
                     if (tokens[p] === '(') {
                         p++;
@@ -412,17 +463,12 @@ class QueryParser {
                         val = values;
                         consumed = (p - i) + 1;
                     }
-                    const finalOp = (op === 'NOT') ? 'NOT IN' : 'IN';
+                    const finalOp = (op === 'NOT' || op === 'TIDAK') ? 'NOT IN' : 'IN';
                     simpleConditions.push({ type: 'cond', key, op: finalOp, val });
                 } else {
                     // Normal Ops
                     val = tokens[i + 2];
                     if (val && (val.startsWith("'") || val.startsWith('"'))) {
-                        // Fix: Handle escaped quotes inside if we regexed them correctly
-                        // But for now simple slice is okay if regex consumed valid string
-                        // Actually, simple slice might break if we have escaped quotes like 'It\'s' -> It\'s
-                        // We should maybe parse the string properly.
-                        // For now, minimal touch: just slice.
                         val = val.slice(1, -1);
                     } else if (val && !isNaN(val)) {
                         val = Number(val);
@@ -606,14 +652,14 @@ class QueryParser {
             i++;
             criteria = this.parseWhere(tokens, i);
             // Fast forward past WHERE clause
-            while (i < tokens.length && !['KELOMPOK', 'GROUP'].includes(tokens[i].toUpperCase())) {
+            while (i < tokens.length && !['KELOMPOK', 'GROUP', 'DENGAN', 'HAVING'].includes(tokens[i].toUpperCase())) {
                 i++;
             }
         }
 
         let groupField = null;
         if (i < tokens.length && ['KELOMPOK', 'GROUP'].includes(tokens[i].toUpperCase())) {
-            // GROUP BY field
+            // GROUP BY field or KELOMPOK field
             // Syntax: GROUP BY field
             if (tokens[i].toUpperCase() === 'GROUP' && tokens[i + 1].toUpperCase() === 'BY') {
                 i += 2;
@@ -627,20 +673,31 @@ class QueryParser {
         // HAVING clause - filter after grouping
         // Syntax: HAVING aggregate_result op value (e.g., HAVING count > 5)
         let having = null;
-        if (i < tokens.length && ['HAVING', 'PUNYA'].includes(tokens[i].toUpperCase())) {
-            i++;
-            // Parse HAVING condition: field op value
-            // Supports: count, sum, avg, min, max (aggregate result fields)
-            const havingField = tokens[i];
-            i++;
-            const havingOp = tokens[i];
-            i++;
-            let havingVal = tokens[i];
-            // Try to parse as number
-            if (!isNaN(Number(havingVal))) {
-                havingVal = Number(havingVal);
+        if (i < tokens.length) {
+            const token = tokens[i].toUpperCase();
+            let isHaving = false;
+
+            if (token === 'HAVING' || token === 'PUNYA') {
+                isHaving = true;
+                i++;
+            } else if (token === 'DENGAN' && tokens[i + 1] && tokens[i + 1].toUpperCase() === 'SYARAT') {
+                isHaving = true;
+                i += 2;
             }
-            having = { field: havingField, op: havingOp, val: havingVal };
+
+            if (isHaving) {
+                // Parse HAVING condition: field op value
+                const havingField = tokens[i];
+                i++;
+                const havingOp = tokens[i];
+                i++;
+                let havingVal = tokens[i];
+                // Try to parse as number
+                if (!isNaN(Number(havingVal))) {
+                    havingVal = Number(havingVal);
+                }
+                having = { field: havingField, op: havingOp, val: havingVal };
+            }
         }
 
         return { type: 'AGGREGATE', table, func: aggFunc, field: aggField, criteria, groupBy: groupField, having };

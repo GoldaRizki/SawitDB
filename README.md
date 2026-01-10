@@ -260,6 +260,9 @@ Test Environment: Single Thread, Windows Node.js (Local NVMe)
 | **Drop Table** | `BAKAR LAHAN [table]` | `DROP TABLE [table]` | Deletes table & data |
 | **Insert** | `TANAM KE [table] ... BIBIT (...)` | `INSERT INTO [table] (...) VALUES (...)` | Auto-ID if omitted |
 | **Select** | `PANEN ... DARI [table] DIMANA ...` | `SELECT ... FROM [table] WHERE ...` | Supports Projection |
+| **Ordering** | `URUTKAN BERDASARKAN [col] [ASC/DESC/NAIK/TURUN]` | `ORDER BY [col] [ASC/DESC]` | Sort results |
+| **Limit** | `HANYA [n]` | `LIMIT [n]` | Limit rows |
+| **Offset** | `MULAI DARI [n]` | `OFFSET [n]` | Skip rows |
 | **Update** | `PUPUK [table] DENGAN ... DIMANA ...` | `UPDATE [table] SET ... WHERE ...` | Atomic update |
 | **Delete** | `GUSUR DARI [table] DIMANA ...` | `DELETE FROM [table] WHERE ...` | Row-level deletion |
 | **Index** | `INDEKS [table] PADA [field]` | `CREATE INDEX ON [table] (field)` | B-Tree Indexing |
@@ -267,11 +270,12 @@ Test Environment: Single Thread, Windows Node.js (Local NVMe)
 | **Sum** | `HITUNG SUM(col) DARI [table]` | `SELECT SUM(col) FROM [table]` (via HITUNG) | Aggregation |
 | **Average** | `HITUNG AVG(col) DARI [table]` | `SELECT AVG(col) FROM [table]` (via HITUNG) | Aggregation |
 | **Min/Max** | `HITUNG MIN(col) DARI [table]` | `SELECT MIN(col) FROM [table]` (via HITUNG) | Aggregation |
-| **DISTINCT** | `PANEN UNIK col DARI [table]` | `SELECT DISTINCT col FROM [table]` | Unique rows |
-| **LEFT JOIN** | `GABUNG KIRI` | `LEFT JOIN ... ON ...` | Outer join |
-| **RIGHT JOIN** | `GABUNG KANAN` | `RIGHT JOIN ... ON ...` | Outer join |
-| **CROSS JOIN** | `GABUNG SILANG` | `CROSS JOIN` | Cartesian product |
-| **HAVING** | `PUNYA count > 5` | `HAVING count > 5` | Filter groups |
+| **Grouping**| `KELOMPOK [col]` | `GROUP BY [col]` | Group results |
+| **DISTINCT** | `PANEN DISTINCT col DARI [table]` | `SELECT DISTINCT col FROM [table]` | Unique rows |
+| **LEFT JOIN** | `GABUNG KIRI [table] PADA ...` | `LEFT JOIN [table] ON ...` | Outer join |
+| **RIGHT JOIN** | `GABUNG KANAN [table] PADA ...` | `RIGHT JOIN [table] ON ...` | Outer join |
+| **CROSS JOIN** | `GABUNG SILANG [table]` | `CROSS JOIN [table]` | Cartesian product |
+| **HAVING** | `DENGAN SYARAT count > 5` | `HAVING count > 5` | Filter groups |
 | **EXPLAIN** | `JELASKAN SELECT ...` | `EXPLAIN SELECT ...` | Query plan |
 
 ### Supported Operators Table
