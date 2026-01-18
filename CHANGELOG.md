@@ -4,7 +4,7 @@ All notable changes to this project will be documented in file.
 
 ## [v3.0.0] - 2026-01-18
 
-### 🎉 Major Features - AKAD & TEROPONG
+### Major Features - AKAD & TEROPONG
 
 #### AKAD (Transactions) - ACID Compliance
 - **Transaction Support**: Full ACID-compliant transactions with in-memory buffering
@@ -40,7 +40,7 @@ All notable changes to this project will be documented in file.
     - Security through column-level access control
     - Simplified complex queries
 
-### 🛠 Architecture Changes
+### Architecture Changes
 - **New Services**:
     - `src/services/TransactionManager.js` - Transaction state and buffering
     - `src/services/ViewManager.js` - View definition and execution
@@ -52,12 +52,11 @@ All notable changes to this project will be documented in file.
     - View resolution in SELECT queries
     - System table initialization for `_views`
 
-### 📚 Documentation
+### Documentation
 - **NEW**: `docs/NEW_FEATURES.md` - Comprehensive guide for AKAD and TEROPONG
 - **Updated**: `README.md` - Added v3.0 features to feature list and syntax table
-- **Tests**: `tests/test_new_features.js` - Full test suite for transactions and views
 
-### 🎯 Roadmap Preview
+### Roadmap Preview
 Next features in development:
 - **KENTONGAN (Triggers)** - Event-driven automation
 - **SOP (Stored Procedures)** - Reusable logic blocks

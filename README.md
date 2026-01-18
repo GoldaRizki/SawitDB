@@ -41,6 +41,7 @@ Please support our brothers and sisters in Aceh.
 - **NPM Support (NEW)**: Install via `npm install @wowoengine/sawitdb`.
 - **AKAD Transactions (v3.0)**: ACID-compliant transactions with `MULAI AKAD`, `SAHKAN`, `BATALKAN`.
 - **TEROPONG Views (v3.0)**: Virtual tables with `PASANG TEROPONG` and `BUANG TEROPONG`.
+- **DB Event & CDC (v3.0)**: Change Data Capture with `CPO` adapter and custom event hooks (`OnTableCreated`, `OnTableInserted`, etc).
 
 ## Filosofi
 
@@ -63,7 +64,7 @@ SawitDB is built with the spirit of "Data Sovereignty". We believe a reliable da
 - `bin/sawit-server.js`: Server executable.
 - `cli/`: Command Line Interface tools (local, remote, test, bench).
 - [CHANGELOG.md](CHANGELOG.md): Version history.
-- [docs/DB Event](docs/DB Event.md): Database Event Documentation.
+- [docs/DB_Event](docs/DB_Event.md): Database Event Documentation.
 
 ## Installation
 
@@ -228,6 +229,87 @@ SELECT * FROM colors CROSS JOIN sizes
 ```sql
 EXPLAIN SELECT * FROM users WHERE id = 5
 -- Returns execution plan: scan type, index usage, join methods
+```
+
+
+### 4. Transactions (AKAD)
+
+#### Syntax
+```sql
+-- Tani (AQL)
+MULAI AKAD
+TANAM KE ...
+SAHKAN
+BATALKAN
+
+-- Generic
+BEGIN TRANSACTION
+INSERT INTO ...
+COMMIT
+ROLLBACK
+```
+
+#### Example
+```javascript
+db.query('MULAI AKAD');
+db.query("TANAM KE Users (name) BIBIT ('Alice')");
+db.query("TANAM KE Users (name) BIBIT ('Bob')");
+db.query('SAHKAN');
+```
+
+### 5. Views (TEROPONG)
+
+#### Syntax
+```sql
+-- Tani (AQL)
+PASANG TEROPONG [name] SEBAGAI [query]
+PANEN * DARI [name]
+BUANG TEROPONG [name]
+
+-- Generic
+CREATE VIEW [name] AS [query]
+SELECT * FROM [name]
+DROP VIEW [name]
+```
+
+#### Example
+```javascript
+// Create View
+db.query("PASANG TEROPONG ActiveUsers SEBAGAI PANEN * DARI Users DIMANA status = 'active'");
+
+// Query View
+const active = db.query('PANEN * DARI ActiveUsers');
+```
+
+## DB Event & Change Data Capture (CDC)
+
+**DB Event** provides Event Driven capabilities, specifically for Change Data Capture (CDC).
+
+#### Supported Events
+| Event Name | Description |
+|:--- |:--- |
+| **OnTableCreated** | Triggered when a new table is created |
+| **OnTableDropped** | Triggered when a table is dropped |
+| **OnTableSelected** | Triggered when records are selected |
+| **OnTableInserted** | Triggered when records are inserted |
+| **OnTableUpdated** | Triggered when rows are updated |
+| **OnTableDeleted** | Triggered when rows are deleted |
+
+#### Enabling CDC
+To enable CDC (currently supporting **CPO** adapter), configure your `.env`:
+
+```env
+SAWIT_CDC_FILE=./examples/logs/sawit.cpo
+SAWIT_CDC_ADAPTER=cpo
+```
+*Note: Kafka support coming soon.*
+
+#### Custom Event Handler
+You can use a custom event handler by passing it to the constructor:
+
+```javascript
+const CustomHandler = require('./dbeventHandlerExample');
+const db = new SawitDB(dbPath, { dbevent: new CustomHandler() });
 ```
 
 ## Architecture Details
