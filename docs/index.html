@@ -232,7 +232,7 @@
         </aside>
 
         <!-- Main Content Area -->
-        <main class="flex-1 lg:ml-72 px-4 py-8 lg:p-12 max-w-5xl mx-auto w-full overflow-x-hidden">
+        <main class="flex-1 mt-16 lg:mt-0 lg:ml-72 px-4 py-8 lg:p-12 max-w-5xl mx-auto w-full overflow-x-hidden">
 
             <!-- Intro Section -->
             <section id="intro" class="mb-16 scroll-mt-24">
@@ -579,6 +579,16 @@
                                     <td class="px-6 py-4 text-green-400 font-mono">GUSUR DARI products ...</td>
                                     <td class="px-6 py-4 text-blue-400 font-mono">DELETE FROM products ...</td>
                                 </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Transaction</td>
+                                    <td class="px-6 py-4 text-green-400 font-mono">MULAI AKAD ... SAHKAN</td>
+                                    <td class="px-6 py-4 text-blue-400 font-mono">BEGIN ... COMMIT</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Views</td>
+                                    <td class="px-6 py-4 text-green-400 font-mono">PASANG TEROPONG [n] SEBAGAI ...</td>
+                                    <td class="px-6 py-4 text-blue-400 font-mono">CREATE VIEW [n] AS ...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -832,6 +842,18 @@
                                     <td class="px-6 py-4 font-mono text-blue-400">EXPLAIN SELECT ...</td>
                                     <td class="px-6 py-4 text-gray-500 text-xs">Query plan</td>
                                 </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Transactions</td>
+                                    <td class="px-6 py-4 font-mono text-green-400">MULAI AKAD</td>
+                                    <td class="px-6 py-4 font-mono text-blue-400">BEGIN TRANSACTION</td>
+                                    <td class="px-6 py-4 text-gray-500 text-xs">ACID Compliant</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Virtual Views</td>
+                                    <td class="px-6 py-4 font-mono text-green-400">PASANG TEROPONG</td>
+                                    <td class="px-6 py-4 font-mono text-blue-400">CREATE VIEW</td>
+                                    <td class="px-6 py-4 text-gray-500 text-xs">Virtual Tables</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -844,8 +866,6 @@
                     <h2 class="text-3xl font-bold text-white flex items-center">
                         Network
                     </h2>
-                    <span
-                        class="bg-red-500/10 text-red-400 px-3 py-1 rounded-full text-sm font-bold border border-red-500/20">NEW</span>
                 </div>
 
                 <p class="text-gray-400 mb-6">Connect using the <code
@@ -956,6 +976,67 @@
             <section id="changelog" class="mb-16 scroll-mt-24">
                 <h2 class="text-3xl font-bold text-white mb-8 border-b border-white/10 pb-4">Latest Updates</h2>
                 <div class="space-y-6">
+                    <!-- v3.0.0 (Upcoming) -->
+                    <div class="relative pl-8 border-l-2 border-green-500/30">
+                        <div
+                            class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-500 border-4 border-gray-900 shadow-[0_0_10px_rgba(34,197,94,0.5)]">
+                        </div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <h3 class="text-xl font-bold text-white">v3.0.0</h3>
+                            <span
+                                class="px-2 py-0.5 rounded text-xs bg-purple-500/20 text-purple-400 border border-purple-500/20 shadow-[0_0_10px_rgba(168,85,247,0.2)]">Upcoming</span>
+                        </div>
+                        <ul class="list-disc list-outside text-gray-300 text-sm space-y-2 ml-4">
+                            <li><strong>AKAD (Transactions):</strong> Full ACID-compliant transactions with in-memory
+                                buffering.
+                                <ul class="list-disc ml-4 mt-1 text-gray-400 space-y-1">
+                                    <li><strong>Transaction Support:</strong> Full ACID-compliant transactions with
+                                        in-memory buffering.
+                                    </li>
+                                    <li><strong>AQL Syntax:</strong> <code class="text-green-400">MULAI AKAD</code>
+                                        (Begin), <code class="text-green-400">SAHKAN</code> (Commit), <code
+                                            class="text-green-400">BATALKAN</code> (Rollback).
+                                    </li>
+                                    <li><strong>Generic SQL:</strong> <code
+                                            class="text-blue-400">BEGIN TRANSACTION</code>, <code
+                                            class="text-blue-400">COMMIT</code>, <code
+                                            class="text-blue-400">ROLLBACK</code>.</li>
+                                    <li><strong>Implementation:</strong> New <code
+                                            class="bg-white/10 px-1 rounded text-xs">TransactionManager.js</code>
+                                        service ensures atomic
+                                        operations (all-or-nothing).</li>
+                                </ul>
+                            </li>
+                            <li><strong>TEROPONG (Views):</strong> Virtual tables from stored SELECT queries (No data
+                                duplication).
+                                <ul class="list-disc ml-4 mt-1 text-gray-400 space-y-1">
+                                    <li><strong>View Support:</strong> Create virtual tables from stored SELECT queries
+                                        (No data
+                                        duplication).</li>
+                                    <li><strong>AQL Syntax:</strong> <code class="text-green-400">PASANG TEROPONG</code>
+                                        (Create),
+                                        <code class="text-green-400">BUANG TEROPONG</code> (Drop).
+                                    </li>
+                                    <li><strong>Benefits:</strong> Query abstraction, reusability, and column-level
+                                        security.</li>
+                                </ul>
+                            </li>
+                            <li><strong>Architecture & Roadmap:</strong>
+                                <ul class="list-disc ml-4 mt-1 text-gray-400 space-y-1">
+                                    <li><strong>DB Event & CDC:</strong> Change Data Capture with <code
+                                            class="text-blue-400">OnTableCreated</code>, <code
+                                            class="text-blue-400">OnTableInserted</code>, etc.</li>
+                                    <li><strong>New Services:</strong> Modular <code
+                                            class="bg-white/10 px-1 rounded text-xs">ViewManager.js</code> and <code
+                                            class="bg-white/10 px-1 rounded text-xs">TransactionManager.js</code>.</li>
+                                    <li><strong>Roadmap:</strong> Triggers (KENTONGAN), Stored Procedures (SOP),
+                                        Replication (CABANG).
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+
                     <!-- v2.6.0 -->
                     <div class="relative pl-8 border-l-2 border-amber-500/30">
                         <div
