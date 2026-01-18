@@ -32,6 +32,12 @@ class QueryParser {
                 case 'CREATE':
                     if (tokens[1] && tokens[1].toUpperCase() === 'INDEX') {
                         command = this.parseCreateIndex(tokens);
+                    } else if (tokens[1] && tokens[1].toUpperCase() === 'TRIGGER') {
+                        command = this.parseCreateTrigger(tokens);
+                    } else if (tokens[1] && tokens[1].toUpperCase() === 'PROCEDURE') {
+                        command = this.parseSaveProcedure(tokens);
+                    } else if (tokens[1] && tokens[1].toUpperCase() === 'VIEW') {
+                        command = this.parseCreateView(tokens);
                     } else {
                         command = this.parseCreate(tokens);
                     }
@@ -58,7 +64,15 @@ class QueryParser {
                     break;
                 case 'BAKAR':
                 case 'DROP':
-                    command = this.parseDrop(tokens);
+                    if (tokens[1] && tokens[1].toUpperCase() === 'TRIGGER') {
+                        command = this.parseDropTrigger(tokens);
+                    } else if (tokens[1] && tokens[1].toUpperCase() === 'PROCEDURE') {
+                        command = this.parseDropProcedure(tokens);
+                    } else if (tokens[1] && tokens[1].toUpperCase() === 'VIEW') {
+                        command = this.parseDropView(tokens);
+                    } else {
+                        command = this.parseDrop(tokens);
+                    }
                     break;
                 case 'INDEKS':
                     command = this.parseCreateIndex(tokens);
@@ -85,10 +99,46 @@ class QueryParser {
                     command = { type: 'ROLLBACK' };
                     break;
                 case 'PASANG':
-                    command = this.parseCreateView(tokens);
+                    if (tokens[1] && tokens[1].toUpperCase() === 'KENTONGAN') {
+                        command = this.parseCreateTrigger(tokens);
+                    } else {
+                        command = this.parseCreateView(tokens);
+                    }
                     break;
                 case 'BUANG':
-                    command = this.parseDropView(tokens);
+                    if (tokens[1] && tokens[1].toUpperCase() === 'KENTONGAN') {
+                        command = this.parseDropTrigger(tokens);
+                    } else if (tokens[1] && tokens[1].toUpperCase() === 'SOP') {
+                        command = this.parseDropProcedure(tokens);
+                    } else {
+                        command = this.parseDropView(tokens);
+                    }
+                    break;
+                case 'SIMPAN':
+                    command = this.parseSaveProcedure(tokens);
+                    break;
+                case 'JALANKAN':
+                    command = this.parseExecuteProcedure(tokens);
+                    break;
+                case 'SETEL':
+                case 'CONFIGURE':
+                    command = this.parseReplication(tokens);
+                    break;
+                case 'EXECUTE':
+                    command = this.parseExecuteProcedure(tokens);
+                    break;
+                case 'BLUSUKAN':
+                case 'FULLTEXT':
+                case 'SEARCH':
+                    command = this.parseSearch(tokens);
+                    break;
+                case 'BERI':
+                case 'GRANT':
+                    command = this.parseGrant(tokens);
+                    break;
+                case 'CABUT':
+                case 'REVOKE':
+                    command = this.parseRevoke(tokens);
                     break;
                 default:
                     throw new Error(`Perintah tidak dikenal: ${cmd}`);
@@ -104,6 +154,106 @@ class QueryParser {
     }
 
     // --- Parser Methods ---
+
+    parseSearch(tokens) {
+        // AQL: BLUSUKAN KE [table] CARI "term"
+        // Generic: SEARCH [table] "term"
+
+        let i = 1;
+        let table;
+
+        if (tokens[0].toUpperCase() === 'BLUSUKAN') {
+            if (tokens[1].toUpperCase() === 'KE') i++;
+        }
+
+        table = tokens[i];
+        i++;
+
+        // Optional columns ( [col1, col2] ) - skipping for MVP, just grab CARI or term
+        if (tokens[i] === '(') {
+            while (tokens[i] !== ')') i++; // Skip columns def
+            i++;
+        }
+
+        if (tokens[i] && tokens[i].toUpperCase() === 'CARI') i++;
+
+        const term = tokens[i];
+        if (!term) throw new Error("Syntax: BLUSUKAN KE [table] CARI \"term\" | SEARCH [table] \"term\"");
+
+        // Strip quotes if present
+        let cleanTerm = term;
+        if ((term.startsWith('"') && term.endsWith('"')) || (term.startsWith("'") && term.endsWith("'"))) {
+            cleanTerm = term.slice(1, -1);
+        }
+
+        return { type: 'FULLTEXT_SEARCH', table, term: cleanTerm };
+    }
+
+    parseGrant(tokens) {
+        // AQL: BERI IZIN [action] KEPADA [user] DI [table]
+        // Generic: GRANT [action] ON [table] TO [user]
+
+        let i = 1;
+        if (tokens[0].toUpperCase() === 'BERI' && tokens[1].toUpperCase() === 'IZIN') i = 2;
+
+        const action = tokens[i]; // read, write, all
+        i++;
+
+        let user;
+        let table;
+
+        // Check for ON/DI vs TO/KEPADA order
+        // SQL: GRANT action ON table TO user
+        // AQL: BERI IZIN action KEPADA user DI table  <-- Different order!
+
+        // Let's handle flexible order based on keywords
+
+        while (i < tokens.length) {
+            const token = tokens[i].toUpperCase();
+            if (token === 'ON' || token === 'DI') {
+                i++;
+                table = tokens[i];
+            } else if (token === 'TO' || token === 'KEPADA') {
+                i++;
+                user = tokens[i];
+            }
+            i++;
+        }
+
+        if (!user || !table) throw new Error("Syntax: GRANT [action] ON [table] TO [user] | BERI IZIN ... KEPADA ... DI ...");
+
+        return { type: 'GRANT_PERMISSION', user, table, action };
+    }
+
+    parseRevoke(tokens) {
+        // AQL: CABUT IZIN [action] DARI [user] DI [table]
+        // Generic: REVOKE [action] ON [table] FROM [user]
+
+        let i = 1;
+        if (tokens[0].toUpperCase() === 'CABUT' && tokens[1].toUpperCase() === 'IZIN') i = 2;
+
+        const action = tokens[i];
+        i++;
+
+        let user;
+        let table;
+
+        while (i < tokens.length) {
+            const token = tokens[i].toUpperCase();
+            if (token === 'ON' || token === 'DI') {
+                i++;
+                table = tokens[i];
+            } else if (token === 'FROM' || token === 'DARI') {
+                i++;
+                user = tokens[i];
+            }
+            i++;
+        }
+
+        if (!user || !table) throw new Error("Syntax: REVOKE [action] ON [table] FROM [user]");
+
+        return { type: 'REVOKE_PERMISSION', user, table, action };
+    }
 
     parseCreate(tokens) {
         let name;
@@ -773,6 +923,109 @@ class QueryParser {
                 criteria.val = bindFunc(criteria.val);
             }
         }
+    }
+
+    // --- Triggers (KENTONGAN) ---
+
+    parseCreateTrigger(tokens) {
+        // Tani: PASANG KENTONGAN [nama] PADA [event] [table]
+        // Generic: CREATE TRIGGER [name] ON [event] [table] DO [query]
+
+        let i = 0;
+        let name, event, table;
+
+        if (tokens[0].toUpperCase() === 'PASANG') {
+            i = 2; // PASANG KENTONGAN
+            name = tokens[i]; i++;
+            if (tokens[i].toUpperCase() !== 'PADA') throw new Error("Syntax: PASANG KENTONGAN [nama] PADA ...");
+            i++;
+        } else {
+            i = 2; // CREATE TRIGGER
+            name = tokens[i]; i++;
+            if (tokens[i].toUpperCase() !== 'ON') throw new Error("Syntax: CREATE TRIGGER [name] ON ...");
+            i++;
+        }
+
+        event = tokens[i].toUpperCase(); i++;
+        table = tokens[i]; i++;
+
+        if (tokens[i].toUpperCase() !== 'LAKUKAN' && tokens[i].toUpperCase() !== 'DO') {
+            throw new Error("Syntax: ... LAKUKAN/DO [query]");
+        }
+        i++;
+
+        const action = tokens.slice(i).join(' ');
+
+        return { type: 'CREATE_TRIGGER', name, event, table, action };
+    }
+
+    parseDropTrigger(tokens) {
+        // BUANG KENTONGAN [nama] | DROP TRIGGER [name]
+        return { type: 'DROP_TRIGGER', name: tokens[2] };
+    }
+
+    // --- Procedures (SOP) ---
+
+    parseSaveProcedure(tokens) {
+        // Tani: SIMPAN SOP [nama] SEBAGAI [query]
+        // Generic: CREATE PROCEDURE [name] AS [query]
+        let name;
+        let i = 0;
+
+        if (tokens[0].toUpperCase() === 'SIMPAN') {
+            name = tokens[2];
+            i = 3;
+            if (tokens[i].toUpperCase() !== 'SEBAGAI') throw new Error("Syntax: SEBAGAI");
+        } else {
+            name = tokens[2];
+            i = 3;
+            if (tokens[i].toUpperCase() !== 'AS') throw new Error("Syntax: AS");
+        }
+        i++; // Skip SEBAGAI/AS
+
+        const body = tokens.slice(i).join(' ');
+
+        return { type: 'SAVE_PROCEDURE', name, body };
+    }
+
+    parseExecuteProcedure(tokens) {
+        // Tani: JALANKAN SOP [nama]
+        // Generic: EXECUTE PROCEDURE [name]
+        return { type: 'EXECUTE_PROCEDURE', name: tokens[2] };
+    }
+
+    parseDropProcedure(tokens) {
+        // BUANG SOP [nama] | DROP PROCEDURE [name]
+        return { type: 'DROP_PROCEDURE', name: tokens[2] };
+    }
+
+    // --- Replication (CABANG) ---
+
+    parseReplication(tokens) {
+        // Tani: SETEL CABANG SEBAGAI [role] [host] [port]
+        // Generic: CONFIGURE REPLICATION AS [role] [host] [port]
+
+        let i = 0;
+        if (tokens[0].toUpperCase() === 'SETEL') {
+            if (tokens[1].toUpperCase() !== 'CABANG') throw new Error("Check Syntax SETEL CABANG");
+            i = 2;
+        } else {
+            if (tokens[1].toUpperCase() !== 'REPLICATION') throw new Error("Check Syntax CONFIGURE REPLICATION");
+            i = 2;
+        }
+
+        if (tokens[i].toUpperCase() !== 'SEBAGAI' && tokens[i].toUpperCase() !== 'AS') {
+            throw new Error("Expected SEBAGAI / AS");
+        }
+        i++;
+
+        const role = tokens[i].toUpperCase();
+        i++;
+        const host = tokens[i] || null;
+        i++;
+        const port = tokens[i] || null;
+
+        return { type: 'CONFIGURE_REPLICATION', role, host, port };
     }
 
     /**

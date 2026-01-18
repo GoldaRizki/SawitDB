@@ -41,7 +41,12 @@ Please support our brothers and sisters in Aceh.
 - **NPM Support (NEW)**: Install via `npm install @wowoengine/sawitdb`.
 - **AKAD Transactions (v3.0)**: ACID-compliant transactions with `MULAI AKAD`, `SAHKAN`, `BATALKAN`.
 - **TEROPONG Views (v3.0)**: Virtual tables with `PASANG TEROPONG` and `BUANG TEROPONG`.
+- **KENTONGAN Triggers (v3.0)**: Event hooks for INSERT/UPDATE/DELETE.
+- **SOP Procedures (v3.0)**: Stored scripts with `SIMPAN SOP` and `JALANKAN SOP`.
+- **CABANG Replication (v3.0)**: Primary-Replica synchronization via Change Data Capture.
 - **DB Event & CDC (v3.0)**: Change Data Capture with `CPO` adapter and custom event hooks (`OnTableCreated`, `OnTableInserted`, etc).
+- **BLUSUKAN Full-Text Search (v3.0)**: Inverted Index search with `BLUSUKAN KE ... CARI`.
+- **POS RONDA Security (v3.0)**: Role-Based Access Control with `BERI IZIN` and `CABUT IZIN`.
 
 ## Filosofi
 
@@ -114,6 +119,12 @@ SawitDB introduces the **Generic Syntax** alongside the classic **Agricultural Q
 | **Rollback** | `BATALKAN` | `ROLLBACK` |
 | **Create View** | `PASANG TEROPONG [nama] SEBAGAI [query]` | `CREATE VIEW [nama] AS [query]` |
 | **Drop View** | `BUANG TEROPONG [nama]` | `DROP VIEW [nama]` |
+| **Trigger** | `PASANG KENTONGAN [nama] PADA ...` | `CREATE TRIGGER [nama] ON ...` |
+| **Procedure** | `SIMPAN SOP [nama] SEBAGAI ...` | `CREATE PROCEDURE [nama] AS ...` |
+| **Replication** | `SETEL CABANG SEBAGAI ...` | `CONFIGURE REPLICATION AS ...` |
+| **Search (FTS)** | `BLUSUKAN KE [table] CARI "term"` | `SEARCH [table] "term"` |
+| **Grant Permission** | `BERI IZIN [action] KEPADA [user] DI [table]` | `GRANT [action] ON [table] TO [user]` |
+| **Revoke Permission** | `CABUT IZIN [action] DARI [user] DI [table]` | `REVOKE [action] ON [table] FROM [user]` |
 
 ---
 
@@ -281,6 +292,108 @@ db.query("PASANG TEROPONG ActiveUsers SEBAGAI PANEN * DARI Users DIMANA status =
 const active = db.query('PANEN * DARI ActiveUsers');
 ```
 
+### 6. Triggers (KENTONGAN)
+
+#### Syntax
+```sql
+-- Tani (AQL)
+PASANG KENTONGAN [nama] PADA [event] [table] LAKUKAN [query]
+BUANG KENTONGAN [nama]
+
+-- Generic (Mapped)
+CREATE TRIGGER [nama] ON [event] [table] DO [query]
+DROP TRIGGER [nama]
+```
+
+#### Example
+```sql
+PASANG KENTONGAN LogInsert PADA INSERT users LAKUKAN TANAM KE logs (msg) BIBIT ('New User Inserted')
+```
+
+### 7. Stored Procedures (SOP)
+
+#### Syntax
+```sql
+-- Tani (AQL)
+SIMPAN SOP [nama] SEBAGAI [query]
+JALANKAN SOP [nama]
+BUANG SOP [nama]
+
+-- Generic (Mapped)
+CREATE PROCEDURE [nama] AS [query]
+EXECUTE PROCEDURE [nama]
+DROP PROCEDURE [nama]
+```
+
+#### Example
+```sql
+SIMPAN SOP ArchiveUsers SEBAGAI TANAM KE archive SELECT * FROM users WHERE status='deleted'
+JALANKAN SOP ArchiveUsers
+```
+
+### 8. Replication (CABANG)
+
+#### Syntax
+```sql
+-- Tani (AQL)
+SETEL CABANG SEBAGAI [role] [host] [port]
+
+-- Roles:
+-- PRIMARY / PUSAT : The master database
+-- REPLICA / CABANG : The slave database
+```
+
+#### Example
+```sql
+-- On Master
+SETEL CABANG SEBAGAI PRIMARY
+
+-- On Slave
+SETEL CABANG SEBAGAI REPLICA 192.168.1.100 7878
+```
+
+### 9. BLUSUKAN (Full-Text Search)
+
+#### Syntax
+```sql
+-- Tani (AQL)
+BLUSUKAN KE [table] CARI "[term]"
+
+-- Generic
+SEARCH [table] "[term]"
+FULLTEXT [table] "[term]"
+```
+
+#### Example
+```sql
+BLUSUKAN KE products CARI "sawit"
+-- Returns all rows in 'products' containing "sawit" in any text field.
+```
+
+### 10. POS RONDA (Security)
+
+#### Syntax
+```sql
+-- Tani (AQL)
+BERI IZIN [action] KEPADA [user] DI [table]
+CABUT IZIN [action] DARI [user] DI [table]
+
+-- Generic
+GRANT [action] ON [table] TO [user]
+REVOKE [action] ON [table] FROM [user]
+```
+
+#### Actions
+- `read`: SELECT, SEARCH
+- `write`: INSERT, UPDATE, DELETE
+- `all`: All permissions
+
+#### Example
+```sql
+BERI IZIN read KEPADA 'guest' DI products
+REVOKE write ON users FROM 'intern'
+```
+
 ## DB Event & Change Data Capture (CDC)
 
 **DB Event** provides Event Driven capabilities, specifically for Change Data Capture (CDC).
@@ -367,6 +480,9 @@ Test Environment: Single Thread, Windows Node.js (Local NVMe)
 | **CROSS JOIN** | `GABUNG SILANG [table]` | `CROSS JOIN [table]` | Cartesian product |
 | **HAVING** | `DENGAN SYARAT count > 5` | `HAVING count > 5` | Filter groups |
 | **EXPLAIN** | `JELASKAN SELECT ...` | `EXPLAIN SELECT ...` | Query plan |
+| **Search** | `BLUSUKAN KE [table] CARI "..."` | `SEARCH [table] "..."` | Full-Text Search |
+| **Grant** | `BERI IZIN ...` | `GRANT ...` | Add Permission |
+| **Revoke** | `CABUT IZIN ...` | `REVOKE ...` | Remove Permission |
 
 ### Supported Operators Table
 

@@ -10,6 +10,11 @@ const IndexManager = require('./services/IndexManager');
 const ConditionEvaluator = require('./services/logic/ConditionEvaluator');
 const TransactionManager = require('./services/TransactionManager');
 const ViewManager = require('./services/ViewManager');
+const TriggerManager = require('./services/TriggerManager');
+const ProcedureManager = require('./services/ProcedureManager');
+const ReplicationManager = require('./services/ReplicationManager');
+const SearchManager = require('./services/SearchManager');
+const SecurityManager = require('./services/SecurityManager');
 
 // Executors
 const SelectExecutor = require('./services/executors/SelectExecutor');
@@ -54,6 +59,11 @@ class SawitDB {
         this.conditionEvaluator = new ConditionEvaluator();
         this.transactionManager = new TransactionManager(this);
         this.viewManager = new ViewManager(this);
+        this.triggerManager = new TriggerManager(this);
+        this.procedureManager = new ProcedureManager(this);
+        this.replicationManager = new ReplicationManager(this);
+        this.searchManager = new SearchManager(this);
+        this.securityManager = new SecurityManager(this);
 
         // Initialize Executors
         this.selectExecutor = new SelectExecutor(this);
@@ -81,6 +91,14 @@ class SawitDB {
 
         // Load Views
         this.viewManager.loadViews();
+
+        // Load Triggers & Procedures
+        this.triggerManager.loadTriggers();
+        this.procedureManager.loadProcedures();
+
+        // Load FTS & Security
+        this.searchManager.init();
+        this.securityManager.init();
     }
 
     close() {
@@ -143,6 +161,19 @@ class SawitDB {
 
         if (cmd.type === 'ERROR') return `Error: ${cmd.message}`;
 
+        // POS RONDA: Security Check
+        // Assumes session.user is passed in options or handled upstream.
+        // For CLI/Local, user might be undefined -> checks handled in manager (allow all).
+        // If command is system command (SHOW tables etc), table might be null or system table.
+        if (cmd.table && !cmd.table.startsWith('_')) {
+            const action = (cmd.type === 'SELECT' || cmd.type === 'BLUSUKAN' || cmd.type === 'SEARCH') ? 'read' : 'write';
+            try {
+                this.securityManager.check(params?.user || 'admin', cmd.table, action);
+            } catch (e) {
+                return e.message;
+            }
+        }
+
         try {
             switch (cmd.type) {
                 case 'CREATE_TABLE':
@@ -158,7 +189,12 @@ class SawitDB {
                     if (this.transactionManager.isActive()) {
                         return this.transactionManager.bufferOperation('INSERT', cmd);
                     }
-                    return this.insertExecutor.execute(cmd);
+                    const insertResult = this.insertExecutor.execute(cmd);
+                    // KENTONGAN HOOK: AFTER INSERT
+                    this.triggerManager.handleEvent('INSERT', cmd.table);
+                    // BLUSUKAN HOOK: Index the new row (Best effort using values)
+                    if (cmd.values) this.searchManager.indexRow(cmd.table, cmd.values.id || Date.now(), cmd.values);
+                    return insertResult;
 
                 case 'SELECT':
                     // Check if table is actually a view
@@ -171,13 +207,22 @@ class SawitDB {
                     if (this.transactionManager.isActive()) {
                         return this.transactionManager.bufferOperation('DELETE', cmd);
                     }
-                    return this.deleteExecutor.execute(cmd);
+                    const deleteResult = this.deleteExecutor.execute(cmd);
+                    // KENTONGAN HOOK: AFTER DELETE
+                    this.triggerManager.handleEvent('DELETE', cmd.table);
+                    // BLUSUKAN HOOK: De-index (Requires ID, assumes cmd.criteria.val is ID for simple case, else skip)
+                    // This is limited for MVP
+                    return deleteResult;
 
                 case 'UPDATE':
                     if (this.transactionManager.isActive()) {
                         return this.transactionManager.bufferOperation('UPDATE', cmd);
                     }
-                    return this.updateExecutor.execute(cmd);
+                    const updateResult = this.updateExecutor.execute(cmd);
+                    // KENTONGAN HOOK: AFTER UPDATE
+                    this.triggerManager.handleEvent('UPDATE', cmd.table);
+                    // BLUSUKAN: Re-indexing would require old row. Skipping for MVP.
+                    return updateResult;
 
                 case 'DROP_TABLE':
                     return this.tableManager.dropTable(cmd.table);
@@ -205,6 +250,33 @@ class SawitDB {
 
                 case 'DROP_VIEW':
                     return this.viewManager.dropView(cmd.viewName);
+
+                case 'CREATE_TRIGGER':
+                    return this.triggerManager.createTrigger(cmd.name, cmd.event, cmd.table, cmd.action);
+
+                case 'DROP_TRIGGER':
+                    return this.triggerManager.dropTrigger(cmd.name);
+
+                case 'SAVE_PROCEDURE':
+                    return this.procedureManager.saveProcedure(cmd.name, cmd.body);
+
+                case 'EXECUTE_PROCEDURE':
+                    return this.procedureManager.executeProcedure(cmd.name);
+
+                case 'DROP_PROCEDURE':
+                    return this.procedureManager.dropProcedure(cmd.name);
+
+                case 'CONFIGURE_REPLICATION':
+                    return this.replicationManager.configure(cmd.role, cmd.host, cmd.port);
+
+                case 'FULLTEXT_SEARCH':
+                    return this.searchManager.search(cmd.table, cmd.term);
+
+                case 'GRANT_PERMISSION':
+                    return this.securityManager.grant(cmd.user, cmd.table, cmd.action);
+
+                case 'REVOKE_PERMISSION':
+                    return this.securityManager.revoke(cmd.user, cmd.table, cmd.action);
 
                 default:
                     return `Perintah tidak dikenal atau belum diimplementasikan di Engine Refactor.`;

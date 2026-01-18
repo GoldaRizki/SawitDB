@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in file.
 
-## [v3.0.0] - 2026-01-18
+## [v3.0.0] - UPCOMMING
 
 ### Major Features - AKAD & TEROPONG
 
@@ -40,6 +40,44 @@ All notable changes to this project will be documented in file.
     - Security through column-level access control
     - Simplified complex queries
 
+#### KENTONGAN (Triggers) - Event Automation
+- **Event Hooks**: Automate actions on `INSERT`, `UPDATE`, `DELETE`
+- **AQL Syntax**: `PASANG KENTONGAN [nama] PADA [event] [table] LAKUKAN [query]`
+- **Implementation**:
+    - New `TriggerManager.js` service
+    - Triggers stored in `_triggers` system table
+    - Synchronous execution within transaction scope
+
+#### SOP (Stored Procedures) - Macro Scripts
+- **Stored Logic**: Save and reuse complex queries
+- **AQL Syntax**: `SIMPAN SOP [nama] SEBAGAI [query]`
+- **Execution**: `JALANKAN SOP [nama]`
+- **Implementation**:
+    - New `ProcedureManager.js` service
+    - Procedures stored in `_procedures` system table
+
+#### CABANG (Replication) - High Availability
+- **Primary-Replica Sync**: Basic master-slave replication via CDC
+- **AQL Syntax**: `SETEL CABANG SEBAGAI [role] ...`
+- **Implementation**:
+    - New `ReplicationManager.js` service
+    - Real-time event broadcasting from Primary
+    - Automatic event application on Replica
+
+#### BLUSUKAN (Full-Text Search) - Search Engine
+- **Inverted Index**: Fast text search capabilities
+- **AQL Syntax**: `BLUSUKAN KE [table] CARI "[term]"`
+- **Implementation**:
+    - New `SearchManager.js` service
+    - Simple Inverted Index stored in `_fts_index`
+
+#### POS RONDA (Security) - Access Control
+- **RBAC**: Table-level permissions (Read/Write)
+- **AQL Syntax**: `BERI IZIN ...` / `CABUT IZIN ...`
+- **Implementation**:
+    - New `SecurityManager.js` service
+    - Permissions stored in `_permissions` system table
+
 ### Architecture Changes
 - **New Services**:
     - `src/services/TransactionManager.js` - Transaction state and buffering
@@ -53,17 +91,11 @@ All notable changes to this project will be documented in file.
     - System table initialization for `_views`
 
 ### Documentation
-- **NEW**: `docs/NEW_FEATURES.md` - Comprehensive guide for AKAD and TEROPONG
 - **Updated**: `README.md` - Added v3.0 features to feature list and syntax table
 
 ### Roadmap Preview
 Next features in development:
-- **KENTONGAN (Triggers)** - Event-driven automation
-- **SOP (Stored Procedures)** - Reusable logic blocks
-- **BLUSUKAN (Full-Text Search)** - Advanced text search
-- **CABANG (Replication)** - High availability
-- **POS RONDA (Security)** - User permissions
-
+- *Belum nemu ide*
 ---
 
 ## [v2.6.0] - 2026-01-10

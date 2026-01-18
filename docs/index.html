@@ -589,6 +589,36 @@
                                     <td class="px-6 py-4 text-green-400 font-mono">PASANG TEROPONG [n] SEBAGAI ...</td>
                                     <td class="px-6 py-4 text-blue-400 font-mono">CREATE VIEW [n] AS ...</td>
                                 </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Triggers</td>
+                                    <td class="px-6 py-4 text-green-400 font-mono">PASANG KENTONGAN [n] PADA ...</td>
+                                    <td class="px-6 py-4 text-blue-400 font-mono">CREATE TRIGGER [n] ON ...</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Procedures</td>
+                                    <td class="px-6 py-4 text-green-400 font-mono">SIMPAN SOP [n] SEBAGAI ...</td>
+                                    <td class="px-6 py-4 text-blue-400 font-mono">CREATE PROCEDURE [n] AS ...</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Replication</td>
+                                    <td class="px-6 py-4 text-green-400 font-mono">SETEL CABANG SEBAGAI ...</td>
+                                    <td class="px-6 py-4 text-blue-400 font-mono">CONFIGURE REPLICATION AS ...</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Search (FTS)</td>
+                                    <td class="px-6 py-4 text-green-400 font-mono">BLUSUKAN KE [tab] CARI "..."</td>
+                                    <td class="px-6 py-4 text-blue-400 font-mono">SEARCH [tab] "..."</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Grant</td>
+                                    <td class="px-6 py-4 text-green-400 font-mono">BERI IZIN ...</td>
+                                    <td class="px-6 py-4 text-blue-400 font-mono">GRANT ...</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Revoke</td>
+                                    <td class="px-6 py-4 text-green-400 font-mono">CABUT IZIN ...</td>
+                                    <td class="px-6 py-4 text-blue-400 font-mono">REVOKE ...</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -854,6 +884,36 @@
                                     <td class="px-6 py-4 font-mono text-blue-400">CREATE VIEW</td>
                                     <td class="px-6 py-4 text-gray-500 text-xs">Virtual Tables</td>
                                 </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Triggers</td>
+                                    <td class="px-6 py-4 font-mono text-green-400">PASANG KENTONGAN</td>
+                                    <td class="px-6 py-4 font-mono text-blue-400">CREATE TRIGGER</td>
+                                    <td class="px-6 py-4 text-gray-500 text-xs">Event Hooks</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Procedures</td>
+                                    <td class="px-6 py-4 font-mono text-green-400">SIMPAN SOP</td>
+                                    <td class="px-6 py-4 font-mono text-blue-400">CREATE PROCEDURE</td>
+                                    <td class="px-6 py-4 text-gray-500 text-xs">Stored Scripts</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Replication</td>
+                                    <td class="px-6 py-4 font-mono text-green-400">SETEL CABANG</td>
+                                    <td class="px-6 py-4 font-mono text-blue-400">CONFIGURE REPLICATION</td>
+                                    <td class="px-6 py-4 text-gray-500 text-xs">Master-Slave Sync</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Search</td>
+                                    <td class="px-6 py-4 font-mono text-green-400">BLUSUKAN</td>
+                                    <td class="px-6 py-4 font-mono text-blue-400">SEARCH / FULLTEXT</td>
+                                    <td class="px-6 py-4 text-gray-500 text-xs">Full-Text Search</td>
+                                </tr>
+                                <tr class="hover:bg-white/5 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-white">Security</td>
+                                    <td class="px-6 py-4 font-mono text-green-400">BERI IZIN / CABUT</td>
+                                    <td class="px-6 py-4 font-mono text-blue-400">GRANT / REVOKE</td>
+                                    <td class="px-6 py-4 text-gray-500 text-xs">Access Control</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -984,7 +1044,8 @@
                         <div class="flex items-center gap-3 mb-2">
                             <h3 class="text-xl font-bold text-white">v3.0.0</h3>
                             <span
-                                class="px-2 py-0.5 rounded text-xs bg-purple-500/20 text-purple-400 border border-purple-500/20 shadow-[0_0_10px_rgba(168,85,247,0.2)]">Upcoming</span>
+                                class="px-2 py-0.5 rounded text-xs bg-green-500/20 text-green-400 border border-green-500/20 shadow-[0_0_10px_rgba(168,85,247,0.2)]">Released</span>
+                            <span class="text-sm text-gray-400">January 19, 2026</span>
                         </div>
                         <ul class="list-disc list-outside text-gray-300 text-sm space-y-2 ml-4">
                             <li><strong>AKAD (Transactions):</strong> Full ACID-compliant transactions with in-memory
@@ -1026,11 +1087,20 @@
                                     <li><strong>DB Event & CDC:</strong> Change Data Capture with <code
                                             class="text-blue-400">OnTableCreated</code>, <code
                                             class="text-blue-400">OnTableInserted</code>, etc.</li>
-                                    <li><strong>New Services:</strong> Modular <code
-                                            class="bg-white/10 px-1 rounded text-xs">ViewManager.js</code> and <code
-                                            class="bg-white/10 px-1 rounded text-xs">TransactionManager.js</code>.</li>
-                                    <li><strong>Roadmap:</strong> Triggers (KENTONGAN), Stored Procedures (SOP),
-                                        Replication (CABANG).
+                                    <li><strong>KENTONGAN (Triggers):</strong> Event hooks for INSERT/UPDATE/DELETE.
+                                        <br>
+                                        <code class="text-green-400 text-xs">PASANG KENTONGAN</code> / <code
+                                            class="text-blue-400 text-xs">CREATE TRIGGER</code>
+                                    </li>
+                                    <li><strong>SOP (Stored Procedures):</strong> Stored scripts/macros.
+                                        <br>
+                                        <code class="text-green-400 text-xs">SIMPAN SOP</code> / <code
+                                            class="text-blue-400 text-xs">CREATE PROCEDURE</code>
+                                    </li>
+                                    <li><strong>CABANG (Replication):</strong> Master-Slave synchronization.
+                                        <br>
+                                        <code class="text-green-400 text-xs">SETEL CABANG</code> / <code
+                                            class="text-blue-400 text-xs">CONFIGURE REPLICATION</code>
                                     </li>
                                 </ul>
                             </li>
